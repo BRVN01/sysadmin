@@ -6,33 +6,63 @@
 
 [DMZ - Demilitarized Zone](DMZ---Demilitarized-Zone)
 
+[Operações de um Firewall](#Operações-de-um-Firewall)
+
 [IPTABLES](#IPTABLES)
 
-[Tabelas](#Tabelas)
+​	[Tabelas](#Tabelas)
 
-[Chains](Chains)
+​	[Chains](Chains)
 
-[Políticas e Regras](#Políticas-e-Regras)
+​	[Políticas e Regras](#Políticas-e-Regras)
 
-[Opções do Iptables](#Opções-do-Iptables)
+​	[Opções do Iptables](#Opções-do-Iptables)
 
 [Estrutura das definições de regras](#Estrutura-das-definições-de-regras)
 
-[Salvando as regras](#Gravando-as-regras)
-
 [Construindo um Firewall](#Construindo-um-Firewall)
+
+​	[Arquitetura Cliente e Servidor](#Arquitetura-Cliente-e-Servidor)
+
+​	[TCP - Transmission Control Protocol](#TCP---Transmission-Control-Protocol)
+
+​	[UDP - User Datagram Protocol](#UDP---User-Datagram-Protocol)
+
+​	[ICMP - Protocolo de Mensagens de Controle da Internet](#ICMP---Protocolo-de-Mensagens-de-Controle-da-Internet)
+
+​	[ICMPv6 - Internet Control Message Protocol versão 6](#ICMPv6---Internet-Control-Message-Protocol-versão-6)
+
+​	[Portas](#Portas)
 
 [Alterando uma regra existente](#Alterando-uma-regra-existente)
 
 [Servidor de Internet (NAT)](#Servidor-de-Internet-(NAT))
 
-[Carrier Grade NAT](#Carrier-Grade-NAT)
+​	[O que é NAT?](#O-que-é-NAT?)
 
-[NAT64](#NAT64)
+​	[O SNAT e DNAT](#O-SNAT-e-DNAT)
+
+​		[Masquerading](#Masquerading)
+
+​		[Redirecionamento de porta](#Redirecionamento-de-porta)
+
+​	[Carrier Grade NAT](#Carrier-Grade-NAT)
+
+​	[NAT64](#NAT64)
+
+[Criando log para as regras](#Criando-log-para-as-regras)
+
+[Criando um Firewall de Rede](#Criando-um-Firewall-de-Rede)
+
+[Salvando as regras](#Gravando-as-regras)
 
 [Colocando as regras na inicialização do sistema](#Colocando-as-regras-na-inicialização-do-sistema)
 
 [Módulos](#Módulos)
+
+[Mangle](#Mangle)
+
+[Usando Bridge](#Usando-Bridge)
 
 
 
@@ -267,7 +297,7 @@ Aplicações Cliente-Servidor podem rodar em cima de TCP ou UDP, o que define is
 
 
 
-#### Comunicação TCP - Transmission Control Protocol
+#### TCP - Transmission Control Protocol
 
 Comunicações TCP são por definição orientadas a conexão, isso significa que antes de que aconteça uma transmissão de dados, ambos os sistemas (cliente e servidor) devem iniciar um processo de "apresentação", onde ambos vão estabelecer uma conexão, isso é chamado de *Three-way Handshake*.
 
@@ -321,7 +351,7 @@ RST
 
 
 
-#### Comunicação UDP - User Datagram Protocol
+#### UDP - User Datagram Protocol
 
 Todo esse processo descrito acima não ocorre no UDP, pois o mesmo não é orientado a conexão, ele também não é um protocolo fim a fim, porque não faz verificação de integridade dos dados (Não consegue saber se falta pacote, a sequência deles ou se existe erro, tudo porque ele não é orientado a conexão), ele até conseguiria saber se existe erro porque o header do UDP faz checksum, mas ele não é usado pelo UDP.
 
@@ -367,7 +397,7 @@ Abaixo segue uma tabela com alguns dos tipos de icmp e seus códigos:
 
 
 
-#### ICMPv6 (Internet Control Message Protocol)
+#### ICMPv6 - Internet Control Message Protocol versão 6
 
 O ICMPv6 é uma versão aprimorada do protocolo ICMPv4, ela foi desenvolvida para ser utilizada em com o IPv6. A nova versão faz tudo o que sua versão anterior poderia fazer, mas novas funcionalidades foram incrementadas, com a chegada do icmpv6 alguns protocolos se uniram ao icmpv6, sendo assim, deixando de existir. Os protocolos são:
 
@@ -398,7 +428,9 @@ Assim como o icmpv4, a versão 6 também possui tipos e códigos, vou exibir ape
 
 #### Portas
 
-As portas usadas na comunicação variam de acordo com cada range e necessidade, segue algumas abaixo:
+As portas são usadas na comunicação entre cliente e servidor, as portes usadas no servidor são portas fixas, que não mudam constantemente ou não mudam nunca dependendo da aplicação, por exemplo, um servidor web sempre vai rodar em 2 portas (80 e 443), existem casos onde isso muda, mas para um webserver da internet não vai, se não todos teriam que saber quais portas usar.
+Existem aplicações em que podemos mudar as portas com mais facilidades como SSH, proxy etc. Essas portas que muito provavelmente irão rodar em ambiente interno e/ou externo, devem ser modificadas por segurança e como abrangem uma quantidade de pessoas mais limitadas (em comparação com toda a internet) é mais fácil notificar todos que vão usar. 
+As portas variam de acordo com cada range e necessidade, segue algumas abaixo:
 
 | Portas      | Tipo de porta | Descrição                                                    |
 | ----------- | ------------- | ------------------------------------------------------------ |
@@ -594,7 +626,7 @@ Um servidor de Internet é um servidor que libera Internet para o restante da re
 
 
 
-#### O que á NAT?
+#### O que é NAT?
 
 O NAT converte endereços IP privados em endereços IP públicos. Cada cliente pode receber um único ou um pequeno intervalo de endereços IP públicos para suportar centenas a milhares de máquinas internas.
 
@@ -621,7 +653,7 @@ Primeiro, precisamos habilitar o roteamento entre interfaces no kernel:
 
 
 
-#### O SNAT e o DNAT
+#### O SNAT e DNAT
 
 - NAT de origem (SNAT)
 
@@ -672,7 +704,7 @@ Exemplo de mudanças de Destino:
 
 
 
-#### Masquerading
+##### Masquerading
 
 Nas redes locais, cada máquina não precisa de um endereço IP (válido) para estar conectado a Internet. Ele pode acessar a Internet utilizando o mascaramento de IP ou IP Masquerading. É uma configuração que permite com que as máquinas sem um endereço de rede (válida), possam se conectar a outras redes com endereços válidos. Esse método deve ser usado apenas para endereços IP atribuídos dinamicamente, se o IP for estático, use o SNAT.
 
@@ -685,18 +717,18 @@ Exemplo de MASQUERADING:
 
 
 
-#### Redirecionamento de porta
+##### Redirecionamento de porta
 
 Uma dos recursos mais usados em servidores de Internet (não somente nele), é o redirecionamento de portas, ao receber uma consulta externa, podemos redirecionar essa consulta para dentro da rede, melhor dizendo, para um host em específico, e redirecionar requisições internas para fora da rede (Internet). Para fazer o  redirecionamento de portas usamos a table a NAT.
 
 ```bash
 ## Exemplo
 # Redirecionando uma requisição de DNS externa para meu DNS na rede Interna:
-╼ \# iptables -t nat -A PREROUTING -p tcp --dport 53 -i enp0s3 -j DNAT --to 192.168.5.7:53
+╼ \# iptables -t nat -A PREROUTING -p tcp --dport 53 -i enp0s3 -j DNAT --to-destination 192.168.5.7:53
 
 # Redirecionando requisições externas para o Web Server interno:
-╼ \# iptables-t nat -A PREROUTING -p tcp --dport 80 -i enp0s3 -j DNAT --to 192.168.5.8:80
-╼ \# iptables -t nat -A PREROUTING -p tcp --dport 443 -i enp0s3 -j DNAT --to 192.168.5.8:443
+╼ \# iptables-t nat -A PREROUTING -p tcp --dport 80 -i enp0s3 -j DNAT --to-destination 192.168.5.8:80
+╼ \# iptables -t nat -A PREROUTING -p tcp --dport 443 -i enp0s3 -j DNAT --to-destination 192.168.5.8:443
 
 # Redirecinando tudo da porta 80 para porta 4156
 ╼ \# iptables -t nat -A PREROUTING -i enp0s3 -p tcp --dport 80 -j REDIRECT --to-port 4156
@@ -801,6 +833,10 @@ iptables -t filter -A FORWARD -p udp -s 0/0 --sport 53 -d 192.168.0.0/24 -j ACCE
 # Liberando HTTP e HTTPS para a rede 192.168.0.0/24
 iptables -t filter -A FORWARD -p tcp -m multiport -s 192.168.0.0/24 -d 0/0 --dport 80,443 -j ACCEPT
 iptables -t filter -A FORWARD -p tcp -m multiport -s 0/0 --sport 80,443 -d 192.168.0.0/24 -j ACCEPT
+
+# Liberando SSH para da rede 192.168.0.0/24 para 192.168.1.0/24
+iptables -t filter -A FORWARD -p tcp -s 192.168.0.0/24 -d 192.168.1.0/24 --dport 22 -j ACCEPT
+iptables -t filter -A FORWARD -p tcp -s 192.168.1.0/24 -d 192.168.0.0/24 --dport 22 -j ACCEPT
 ```
 
 
@@ -977,13 +1013,191 @@ Faz exatamente o que o módulo `limit` faz, mas esse bloqueia baseado no IP de o
 # Sintaxe: -m connlimit  --connlimit-above 2 -j DROP
 
 ╼ \# iptables -A INPUT -p tcp -s 192.168.122.0/24 --dport 22 -m connlimit --connlimit-above 2 -j DROP
+# Se existir mais de 2 conexões para porta 22 (ssh) eu vou dropar essa origem.
 ```
 
-Se existir mais de 2 conexões para porta 22 (ssh) eu vou dropar essa origem.
+
+
+Um teste com icmp:
 
 ```bash
 ╼ \# iptables -A INPUT -p icmp -s 192.168.122.0/24 -m connlimit --connlimit-above 3 -j DROP
 
 # Com ess regra acima, vou bloquear depois que receber icmp mais de 3 vezes da mesma origem, cuidado que com isso, todos as requisições são bloqueadas por um certo tempo.
+```
+
+
+
+### CONNTRACK
+
+Com o módulo `conntrack` conseguimos verificar o estado da conexão, como foi dito em [Firewall UTM - Stateful](#Firewall-UTM---Stateful), essa geração já consegue distinguir conexões no firewall, sendo uma nova conexão, uma conexão estabelecida, relacionada entre outros. Existe também o módulo `state`, que possui algumas opções a menos que o `conntrack`, por isso não vou abordar ele aqui.
+
+Opções mais usadas:
+
+- ESTABLISHED
+
+  O pacote pertence a uma conexão já existente. Cria-se uma conexão estabelecida após receber o `SYN+ACK`, por mais que o cliente ainda não tenha enviado um `ACK`, nesse momento o servidor já aloca recursos para esse aperto de mão.
+  
+
+- RELATED
+
+  O pacote tem relação indireta com outro pacote de uma conexão já estabelecida.
+  
+
+- NEW
+
+  Uma nova conexão, é criado uma nova conexão quando recebemos um pacote `SYN`.
+
+  
+
+- INVALID
+
+  Pacotes que não é de nenhuma conexão acima, 
+
+```bash
+# Existem algumas regras que devam ficar no começo, são duas, liberando loopback
+# e essas duas:
+╼ \# iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+╼ \# iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+
+# Com a 1° regras, vou aceitar todos os pacotes que estiverem entrando e que já estejam estabelecido (O processo de Three-way Handshake já foi feito).
+# Isso é bastante útil porque podemos deixar aberto toda a saída e usar essa regra para permitir apenas pacotes que inicialmente foram gerados pela máquina onde o firewall está ativo.
+
+# Exemplo, Com essa regra não preciso permitir pacotes de consulta DNS, DHCP, HTTP, NTP entre outros, porque todos foram gerados pelo firewall, então uma conexão já foi estabelecida.
+
+# A segunda regra não vai permitir pacotes que não se enquadram em NEW, ESTABLISHED e RELATED.
+```
+
+
+
+### IPRAGNE
+
+Com esse módulo podemos especificar uma range de IP numa única regra.
+
+```bash
+╼ \# iptables -t filter -A INPUT -p tcp -m iprange --src-range 192.168.100.15-192.168.100.30 --dport 22 -j DROP
+
+# Vamos dropar todo as origens que sejam de 15 até 30.
+```
+
+
+
+### MAC
+
+Cria regras baseado no endereço MAC.
+
+```bash
+╼ \# iptables -t filter -A INPUT -p tcp -m mac --mac-source 52:54:00:51:09:6e --dport 22 -j ACCEPT
+
+# Vamos aceitar apenas pacotes na porta 22 que tenham esse mac como origem.
+```
+
+
+
+### TIME
+
+Faz bloqueio baseado no horário.
+
+```bash
+╼ \# iptables -t filter -A INPUT -p tcp -m time --timestart 10:00 --timestop 11:00 --dport 22 -j ACCEPT
+
+# Tendo a política como DROP, essa regra vai permitir SSH apenas das 10 até as 11.
+# Podemos usar a opção --kerneltz para que não se utilize do time UTC da máquina.
+```
+
+
+
+### STRING
+
+Cria regras baseadas em string nos pacotes.
+
+```bash
+╼ \# iptables -t filter -I OUTPUT -p tcp --dport 443 -m string --algo bm --string "youtube" -j DROP
+
+# --algo bm = Seleciona o algoritmo bm.
+# --string "string" = Passa a string que vamos olhar no pacote.
+
+# Vamos dropar pacotes para o youtube.
+```
+
+
+
+### RECENT
+
+Cria uma lista baseado em regras e a partir dessa lista, podemos bloquear por um determinado tempo.
+
+```bash
+# Toda vez que passar por essa regra, atualiza a lista e verifica se o pacote já atingiu o hitcount de 3, se atingir vou dropar essa origem por 120 segundos.
+╼ \# iptables -t filter -A FORWARD -m recent --update --hitcount 3 --name WARNING --seconds 120 -j DROP
+
+# Se tiver alguem pingando para o router eu vou cadastrar essa origem na lista WARNING
+╼ \# iptables -t filter -A FORWARD -p icmp -d 192.168.0.1 -m recent --set --name WARNING  -j ACCEPT
+
+# Permitindo a resposta do router:
+╼ \# iptables -t filter -A FORWARD -p icmp -s 192.168.0.1 -j ACCEPT
+```
+
+
+
+### MULTIPORT
+
+Permite inserir várias portas numa única regra.
+
+```bash
+╼ \# iptables -t filter -A INPUT -m udp -p udp -m multiport --dports 33433:33690 -j ACCEPT
+# Aceitando todas as requisições UDP entre as portas 33433 até 33690, ou seja, essas portas estão abertas.
+```
+
+
+
+## Mangle
+
+
+
+Altera a prioridade de entrada e saída do pacote baseado no tipo de serviço, pode alterar o TTL e fazer marcações nos pacotes.
+
+A tabela `Mangle` contém todas as Chains, segue abaixo um esquema mostrando o fluxo do *iptables* para quase todas as tabelas:
+
+![fluxo_iptables](IMG/fluxo_iptables.png)
+
+
+
+### TOS - Type os Service (Tipo de serviço)
+
+Usado para alterar a prioridade de um pacote baseado no serviço, com ele alteramos o campo TOS do pacote, dando uma maior prioridade em comparação a outro.
+
+| Descrição                  | Código em Decimal | Código em Hexadecimal |
+| -------------------------- | ----------------- | --------------------- |
+| Prioridade normal (padrão) | 0                 | 0x00                  |
+| Custo mínimo               | 2                 | 0x02                  |
+| Máxima confiança           | 4                 | 0x04                  |
+| Máximo processamento       | 8                 | 0x08                  |
+| Espera mínima              | 16                | 0x10                  |
+
+```bash
+# Dando máxima prioridade para SSH:
+iptables -t mangle -A FORWARD -p tcp --dport 22 -j TOS --set-tos 16
+
+# Dando máximo processamento para FTP:
+iptables -t mangle -A FORWARD -p tcp --sport 20 -j TOS --set-tos 8
+```
+
+
+
+Para exemplo de como fazer marcação, veja o [link](https://tldp.org/HOWTO/Adv-Routing-HOWTO/lartc.netfilter.html).
+
+
+
+## Usando Bridge
+
+Em casos onde o firewall está como bridge (Um firewall transparente), para que as regras de FORWARD funcione, já que é bridge, você precisará habilitar o módulo `br_netfilter`, que é um módulo para trabalhar com Bridge, depois disso pode usar as regras de FORWARD normalmente.
+
+
+
+```bash
+# Habilite o módulo (Até reiniciar o firewall):
+modprobe br_netfilter
+
+# Agora voce pode fazer as regras normalmente.
 ```
 
