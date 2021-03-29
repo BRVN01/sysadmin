@@ -1,16 +1,114 @@
+# Sumário
+
+[Introdução](#Introdução)
+
+[Gerações de Firewalls](#As-Gerações-de-Firewall)
+
+[DMZ - Demilitarized Zone](DMZ---Demilitarized-Zone)
+
+[IPTABLES](#IPTABLES)
+
+[Tabelas](#Tabelas)
+
+[Chains](Chains)
+
+[Políticas e Regras](#Políticas-e-Regras)
+
+[Opções do Iptables](#Opções-do-Iptables)
+
+[Estrutura das definições de regras](#Estrutura-das-definições-de-regras)
+
+[Salvando as regras](#Gravando-as-regras)
+
+[Construindo um Firewall](#Construindo-um-Firewall)
+
+[Alterando uma regra existente](#Alterando-uma-regra-existente)
+
+[Servidor de Internet (NAT)](#Servidor-de-Internet-(NAT))
+
+[Carrier Grade NAT](#Carrier-Grade-NAT)
+
+[NAT64](#NAT64)
+
+[Colocando as regras na inicialização do sistema](#Colocando-as-regras-na-inicialização-do-sistema)
+
+
+
 ## **1 - FIREWALL LINUX**
 
-Existem basicamente 2 tipos de Firewalls, são eles:
+## Introdução
+
+Um Firewall é um dispositivo de Rede que monitora tráfegos que entram e saem da rede (Firewall de Rede) ou que entram e saem da próprio máquina (Firewall de Host), o Firewall vai permite ou bloquear pacotes de dados sempre baseado nas regras que criarmos. O maior propósito do Firewall é criar barreira entre a rede interna e a rede externa ou outras redes internas, tudo para bloquear tráfego malicioso ou negar acessos a outras áreas.
+
+
+
+## As Gerações de Firewall
+
+Os Firewalls são classificados em gerações por suas capacidades atuais, geralmente todo FW (Sigla para Firewall) está na terceira geração, usar FW de primeira ou segunda geração não é muito seguro devido a sua baixa capacidade e inteligência1 de trabalhar com os pacotes de rede.
+
+
+
+### Primeira Geração - Stateless
+
+Mais conhecido como filtro de pacotes, aqui temos os *fw stateless*, isso significa que esses *fw's* são muito limitados, eles não possuem conhecimento algum sobre a conexão, eles olham cada pacotes individualmente e não conseguem fazer relação entre pacotes ou conexões. Esse tipo de *fw* é limitado apenas a filtro de pacotes e só conseguem ver o protocolo do pacote, as portas e IP de origem/destino.
+
+Um exemplo de firewall é o Ipfwadm e Ipchains, ambos são predecessores do Iptables.
+
+
+
+### Segunda Geração
+
+Aqui já temos uma introdução de *fw* que consegue fazer o reconhecimento da camada de aplicação e melhora a visibilidade do tráfego, por exemplo consegue distinguir tráfego malicioso, também podemos configurar algumas coisas de proxy nele, mas bem básicas.
+
+
+
+### Firewall UTM - Stateful
+
+Aqui temos um equipamento que pode fazer uma análise das conexões existentes, saber se é uma nova conexão, se essa conexão já foi estabelecida, ele também faz filtro de spam, url, inspeção de malware, funciona como IDS, IPS, balanceador de carga dentre outras funcionalidades.
+
+
+
+### NGFW - Next Generation Firewall
+
+Aqui temos um firewall aprimorado, sucessor do *FW UTM*, podemos dizer que o *fw utm* cresceu muito em software e pouco em hardware, o código do *utm* estava sempre somando ao código principal do Firewall o que acabou deixando muita coisa num único hardware, que muitas vezes não era tão potente assim.
+
+Então teve uma revisão do *utm* e criou-se o *NGFW* que veio com a premissa de melhorar o desempenho do FW fazendo tudo que seus predecessores faziam. Esse tipo de Firewall é mais usado em grandes empresas com volumes de tráfego altos e poder de processamento maiores. Já o *utm* é muito usado em empresas de pequeno/médio porte, onde se obtém os mesmos benefícios mas em hardwares não muito robustos.
+
+
+
+## DMZ - Demilitarized Zone
+
+Uma zona desmilitarizada (DMZ) é um segmento de rede que protege uma LAN dentro de uma organização de tráfego não confiável. Graças a DMZ podemos expor serviços internos para redes externa não confiáveis e adicionamos uma camada de segurança  para proteger dados armazenados dentro da rede interna. Seu maior objetivo é permitir que uma organização acesse recursos da rede interna a partir de redes não confiáveis como a internet, na DMZ geralmente colocamos serviços como DNS, FTP, Mail, Site, Proxy entre outros serviços que devam ficar acessíveis para outras redes.
+
+Um ponto importante da DMZ é que, quem acessa o serviço da DMZ não consegue acesso a rede interna da empresa, ela impede que através da DMZ, possa ser possível ter acesso a rede interna.
+
+
+
+## IPTABLES
+
+O Firewall do Iptables é desenvolvido pelo [*Netfilter Project*](http://www.netfilter.org) e está disponível como parte do Linux desde o lançamento do kernel Linux 2.4 em janeiro de 2001. O iptables é um framework que gerencia regras de fw numa maquina Linux, quem realmente faz o trabalho pesado são módulos do netfilter que se comunicam diretamente com o Kernel, ele recebe essas regras diretamente do iptables. 
+
+Existem outros frameworks que interagem com o Netfilter, um deles é o FirewallD,. O iptables e o nftables são framework desenvolvido pela mesma equipe que criou o netfilter.
+
+Hoje o Iptables já possui um sucessor, chamado de [nftables](https://www.netfilter.org/projects/nftables/index.html), mas seu uso ainda deve continuar por bastante tempo até que o nftables crie raizes mais firmes no mercado.
+
+
+
+### Operações de um Firewall
+
+Um Firewall pode operar basicamente de duas maneiras, são elas:
 
 - **Firewall de Rede**
 
-  Nosso Firewall de borda, tem a função de Gerenciar todos os pacotes que entram e saem da nossa rede (FORWARD / INPUT / OUTPUT / NAT / PREROUTNG / POSROUTING);
+  Também conhecido como Firewall de borda, tem a função de Gerenciar todos os pacotes que entram e saem da nossa rede, nesse tipo de Firewall é muito comum usar as Chains: FORWARD, INPUT, OUTPUT, NAT, PREROUTNG e POSROUTING.
 
 - **Firewall de Host**
 
-  Configurado localmente em cada servidor, gerencia todos os pacotes do host com a rede interna e/ou externa (INPUT e OUTPUT).
+  Configurado localmente em cada servidor, esse tipo de Firewall controla todos os pacotes do host (incoming e outcoming) com a rede interna e/ou externa, nesse tipo de Firewall é mais comum o uso das Chains: INPUT e OUTPUT.
 
-O firewall do iptables é desenvolvido pelo[*Netfilter Project*](http://www.netfilter.org)e está disponível como parte do Linux desde o lançamento do kernel Linux 2.4 em janeiro de 2001.
+
+
+### Resumo do Iptables
 
 O iptables funciona a nível de pacote, sempre se baseando no endereço/porta de origem/destino e prioridade, sempre comparando as regras para saber se um pacote pode ou não passar.
 
@@ -20,35 +118,14 @@ O iptables funciona a nível de pacote, sempre se baseando no endereço/porta de
 - **Possui 5 tabelas**: 
   Filter, NAT, MANGLE, RAW e Security;
 
-- **Possui 5 chains**: 
+- **Possui 5 Chains**: 
   INPUT, OUTPUT, FORWARD, PREROUTING, POSTROUTING.
-
-
-
-Analisar as regras:
-
-```
-sudo iptables -P INPUT -j DROP
-sudo iptables -P FORWARD -j DROP
-sudo iptables -P OUTPUT -j ACCEPT
-
-sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-sudo iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
-sudo iptables -A INPUT -p icmp --icmp-type destination-unreachable -j ACCEPT
-sudo iptables -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
-sudo iptables -A INPUT -p icmp --icmp-type time-exceeded -j ACCEPT
-sudo iptables -A INPUT -p icmp --icmp-type parameter-problem -j ACCEPT
-sudo iptables -A INPUT -p udp -m multiport --dport 33434:33690 -j ACCEPT
-
-```
-
-
 
 
 
 ### Tabelas
 
-Cada regra do IPTABLES é realizada numa tabelta específica, isso ajuda a manter a organização das regras criadas, segue as regras abaixo:
+Cada regra do Iptables é realizada numa tabelta específica, isso ajuda a manter a organização das regras criadas, segue as tabelas abaixo:
 
 | Tabela   | Descrição                                                    |
 | -------- | ------------------------------------------------------------ |
@@ -62,9 +139,9 @@ Cada regra do IPTABLES é realizada numa tabelta específica, isso ajuda a mante
 
 ### Chains
 
-Cada cadeia (Chain) é apenas um diretório (fazendo uma analogia), dentro da Chain será criado as regras de Firewall. O IPTABLES possuí algumas Chains default, que são INPUT, OUTPUT e FORWARD, mas você pode criar suas próprias Chains.
+Cada "cadeia" (Chain) é apenas um diretório (fazendo uma analogia), dentro da Chain será criado as regras de Firewall. O IPTABLES possuí algumas Chains default, mas você pode criar suas próprias Chains.
 
-Por exemplo, Entrada_Funcional (regras apenas de entrada que estão estabelecidas por exemplo) ou gerencia (Rede de gerencia da empresa), dessa forma, você irá sempre saber do que se trata as regras que estão dentro da Chain.
+Por exemplo, uma Chain chamada `Entrada_Funcional` (regras apenas de entrada que estão estabelecidas) ou `Gerencia` (Rede de gerencia da empresa), dessa forma, você irá sempre saber do que se trata as regras que estão dentro da Chain.
 
 Segue abaixo as Chains de cada Tabela (por padrão):
 
@@ -82,9 +159,9 @@ Segue abaixo as Chains de cada Tabela (por padrão):
 
 - **Input** - Aqui temos os pacotes destinados ao nosso sistema Linux, após o Kernel fazer um cálculo de roteamento, sempre depois de ter feito o roteamento.
 - **OUTPUT** -  É reservado para pacotes gerados pelo próprio Linux, ou seja, pacotes que saem da nossa própria máquina.
-- **FORWARD** -  São os pacotes roteados pelo nosso Linux (ou seja, quando o firewall do iptables é usado para conectar mais de uma rede).
-- **PREROUTING** - É usada para aplicar regras na tabela `nat` a pacotes que ainda não passaram pelo algoritmo de roteamento no kernel, a fim de determinar a interface na qual eles devem ser transmitidos. Os pacotes processados nesta chain também ainda não foram comparados com as chain INPUT ou FORWARD na tabela de filtros.
-- **POSTROUTING** - É responsável pelo processamento de pacotes depois que eles passam pelo algoritmo de roteamento no kernel e estão prestes a ser transmitidos na interface física. Os pacotes processados por essa chain passaram pelos requisitos das chains OUTPUT ou FORWARD na tabela de filtros.
+- **FORWARD** -  São os pacotes roteados pelo nosso Linux (ou seja, quando o firewall do Iptables é usado para conectar mais de uma rede).
+- **PREROUTING** - É usada para aplicar regras na tabela `nat` a pacotes que ainda não passaram pelo algoritmo de roteamento no kernel, a fim de determinar a interface na qual eles devem ser transmitidos. Os pacotes processados nesta Chain ainda não foram comparados com as Chain INPUT ou FORWARD na tabela `filter`.
+- **POSTROUTING** - É responsável pelo processamento de pacotes depois que eles passam pelo algoritmo de roteamento no kernel e estão prestes a ser transmitidos na interface física. Os pacotes processados por essa Chain já passaram pelos requisitos das Chains OUTPUT ou FORWARD na tabela `filter`.
 
 
 
@@ -95,6 +172,12 @@ Segue abaixo as Chains de cada Tabela (por padrão):
 - **REJECT ** - Barra (Dropa) um pacote mas devolve uma mensagem de erro ao remetente;
 - **MASQUERADE** - Mascara o pacote (geralmente saindo da rede);
 - **LOG** - Cria uma registro de LOG.
+
+
+
+Segue abaixo uma imagem que descreve o fluxo de dados de um pacote assim que recebemos ele pela interface de rede ou quando vamos enviar algum dado (Fluxo contendo apenas as tabelas Filter e NAT).
+
+![fluxo_simples_iptables](IMG/fluxo_simples_iptables.png)
 
 
 
@@ -113,15 +196,15 @@ Segue abaixo as Chains de cada Tabela (por padrão):
 | -s (IP)              | (**Source**) É a origem                                      |
 | --line-numbers       | Adiciona um número a cada regra de cada Chain                |
 | -D (Chain) (Number)  | (**Delete**) Deleta uma regra                                |
-| -R (chain) (rulenum) | (**Replace**) Altera uma regra já existente                  |
+| -R (Chain) (rulenum) | (**Replace**) Altera uma regra já existente                  |
 | -F                   | (**Flush**) Deleta todas as regras de uma Chain              |
-| -N (chain)           | (**new**) Crie uma nova Chain definida pelo usuário          |
+| -N (Chain)           | (**new**) Crie uma nova Chain definida pelo usuário          |
 | -n                   | (**Numeric**) Saída em forma de número de endereços e portas |
 | -i (interface)       | (**in-interface**) Interface da qual um pacote foi recebido  |
 | -o (interface)       | (**out-interface**) Interface da qual um pacote será enviado |
 | --sport (porta)      | (**Source-port**) Porta de origem do pacote                  |
 | --dport (porta)      | (**Destination-port**) Porta de destino do pacote            |
-| -m (módulo)          | (**Comment**) Comentario na regra (uso: **-m comment --comment "Comentario"**) |
+| -m (módulo)          | (Ex: **Comment**) Faz um comentario na regra (uso: **-m comment --comment "Comentario"**) |
 |                      | (**Multiport**) Podemos colocar várias portas                |
 | LOG --log-prefix     | (**LOG**) Cria um sistema de log                             |
 
@@ -159,45 +242,161 @@ Usamos as Chains FORWARD, OUTPUT e POSTROUTING quando estivermos usando a opçã
 <span style="color:#0000ff">iptables -t</span>  <span style="color:#008080">filter -A INPUT </span> <span style="color:#808000">-s 127.0.0.1 -d 127.0.0.1</span> <span style="color:#008000"> -j ACCEPT</span>
 
 - <span style="color:#0000ff">Prefixo que "sempre será usado";</span>
-- <span style="color:#008080">Onde a regra é armazenada, é o local onde o kernel irá verificar a regra (Chain);</span>
+- <span style="color:#008080">Onde a regra é armazenada, é o local onde o kernel irá verificar a regra (Tabela + Chain);</span>
 - <span style="color:#808000">A regra que será aplicada, nesse caso IP Origem e Destino, pode conter porta, protocolo e etc;</span>
 
 - <span style="color:#008000">A ação que será aplicada, se o pacote será aceito, dropado, rejeitado, direcionado e etc.</span>
 
 
 
-### Gravando as regras
-
-Como as do iptables são criadas na memória, toda vez que o host for reiniciado as regras serão perdidas, para isso temos um comando para salvar as regras que estão na memória e um outro comando que ativa essas regras salvas anteriormente.
-
-- **iptables-save**  - Salva as regras num arquivo;
-- **iptables-restore** - Ativa as regras salvas.
-
-```bash
-# Salvando as regras (Backup):
-╼ \# iptables-save > /backup/firewall.rules
-
-# Fazendo o restore das regras:
-╼ \# iptables-restore /backup/firewall.rules
-```
-
-
-
 ### Construindo um Firewall
 
-Para isso, é importante ter conhecimento das portas e protocolos de serviço de rede, entender a conexão baseada em Cliente e Servidor.
+Antes de iniciarmos no mundo do Firewall é importante termos alguns conhecimentos antes, como das portas e protocolos de serviço de rede (que vamos usar), entender a conexão baseada em Cliente e Servidor, conhecer IP (Versão 4 e 6), TCP, UDP, ICMP no minímo, quanto mais protocolos tiver conhecimento melhor.
+
+Não irei focar em conhecimentos tão específicos, mas irei explicar bem o que for abordado para que não reste dúvidas do motivo ou razao de usar tal método, então o que for visto sobre protocolos e parte de Rede só irei abordar pequenas explicações para que consiga entender o que é e o que faz.
 
 
 
 #### Arquitetura Cliente e Servidor
 
-Arquitetura Cliente/Servidor trata-se de uma estrutura de rede entre dois sistemas finais, que **solicitam e recebem** (cliente) um serviço de um programa servidor. O programa Cliente normalmente roda em um computador (PC ou servidor) e o programa servidor, em outro, aplicações Cliente/Servidor são, por definição, **aplicações distribuídas**.
+Arquitetura Cliente/Servidor trata-se de uma estrutura de rede entre dois sistemas finais, que **solicitam e recebem** (cliente) um serviço de um programa servidor (Servidor). O programa Cliente normalmente roda em um computador (PC ou servidor) e o programa servidor, em outro, aplicações Cliente/Servidor são, por definição, **aplicações distribuídas**.
 
-![Mitigating a SYN Flood Attack - root@opentodo#](https://opentodo.files.wordpress.com/2012/12/syn-flood.jpg?resize=418%2C305)
+Aplicações Cliente-Servidor podem rodar em cima de TCP ou UDP, o que define isso é quem vai fornecer o serviço e quem vai receber.
 
-Esse processo da imagem acima é conhecido como Three-way Handshake, ele é usado para estabelecer comunicação entre cliente e servidor, no ultimo processo, após o cliente enviar um ACK para o servidor, ambos vão ter uma sessão aberta para poderem se comunicar, e logo após isso, o cliente pode solicitar dados do servidor que o transmitirá caso possível.
 
-As portas usadas na comunicação variam de acordo com cada range e necessidade, segue abaixo:
+
+#### Comunicação TCP - Transmission Control Protocol
+
+Comunicações TCP são por definição orientadas a conexão, isso significa que antes de que aconteça uma transmissão de dados, ambos os sistemas (cliente e servidor) devem iniciar um processo de "apresentação", onde ambos vão estabelecer uma conexão, isso é chamado de *Three-way Handshake*.
+
+Ele é usado para estabelecer uma comunicação entre cliente e servidor. Todo esse processo no TCP é feito usando flags do pacote TCP, no estabelecimento de uma conexão, existem 3 flags em uso, veja como ocorre:
+
+![handsahake](IMG/handsahake.png)
+
+
+
+1. O cliente envia um pacote com a flag **SYN** ativa (SYN=**Synchronize** (**Sincronizar**)), junto dessa flag temos um número que identifica esse pacote; Isso informa ao servidor que existe um cliente querendo estabalecer uma conexão com ele, após o servidor receber o pedido de sincronização, ele devolve um pacote visto no passo 2.
+
+   Sobre o número do pacote, pode começar com qualquer numeração, não tendo um valor fixo todas as vezes.
+
+2. O servidor responde com um pacote com as flags **SYN+ACK** ativas; **ACK** significa que o servidor recebeu o pedido de sincronização (Ele informa o número de sequencia do pacote que recebeu incrementado de 1, é como dizer, *recebi seu pacote*) e **SYN** significando que o servidor também quer sincronizar uma conversação com o cliente (Ele também envia um número de sequencia identificando o pacote, esse número é totalmente diferente do enviado pelo cliente e não possuem relação direta). 
+
+3. O cliente responde com um pacote **ACK**, reconhecendo o ultimo pacote enviado pelo servidor. Agora  ambos vão ter uma sessão aberta para poderem se comunicar, e logo após isso, o cliente pode solicitar dados do servidor que o transmitirá caso possível.
+
+
+
+As flags existentes são:
+
+| Flag | Descrição                                                    |
+| ---- | ------------------------------------------------------------ |
+| ACK  | É usado para confirmar o recebimento bem-sucedido de um pacote. |
+| FIN  | Significa que não há mais dados no remetente, portanto, ele é usado no último pacote enviado pelo remetente. Encerra a conexão. |
+| PSH  | É semelhante ao sinalizador URG e diz ao receptor para processar esses pacotes à medida que são recebidos, em vez de armazená-los em buffer. Normalmente quando essa flag está ativa temos dados sendo trafegados. |
+| RST  | O sinalizador de reinicialização é enviado do receptor para o remetente quando um pacote é enviado para um host que não o esperava. |
+| SYN  | O sinalizador SYN sincroniza os números de sequência para iniciar uma conexão TCP. |
+| URG  | É usado para notificar o receptor para processar os pacotes urgentes antes de processar todos os outros pacotes. O receptor será notificado quando todos os dados urgentes conhecidos forem recebidos. |
+
+
+
+Para ver cada flag individualmente no Linux podemos usar o `tcpdump`:
+
+```
+ACK
+	sudo tcpdump 'tcp[13] & 16 != 0'
+SYN
+	sudo tcpdump 'tcp[13] & 2 != 0'
+FIN
+	sudo tcpdump 'tcp[13] & 1 != 0'
+URG
+	sudo tcpdump 'tcp[13] & 32 != 0'
+PSH
+	sudo tcpdump 'tcp[13] & 8 != 0'
+RST
+	sudo tcpdump 'tcp[13] & 4 != 0'
+```
+
+
+
+
+
+#### Comunicação UDP - User Datagram Protocol
+
+Todo esse processo descrito acima não ocorre no UDP, pois o mesmo não é orientado a conexão, ele também não é um protocolo fim a fim, porque não faz verificação de integridade dos dados (Não consegue saber se falta pacote, a sequência deles ou se existe erro, tudo porque ele não é orientado a conexão), ele até conseguiria saber se existe erro porque o header do UDP faz checksum, mas ele não é usado pelo UDP.
+
+Muitas aplicações também não querem que aconteça uma retransmissão de um pacote que deu errado, imagine ficar tendo retransmissão de video em tempo real ou de voz.
+
+Como o UDP foi projetado para ser um pacote mais leve e ter uma conexão mais rápida, não faria sentido implementar esses mecanismos que o TCP possui. Essa explicação é importante para que você entenda o que é um protocolo orientado a conexão.
+
+
+
+O cabeçalho UDP tem apenas quatro campos, cada campo conteém em 16 bits (2 bytes). 
+
+![UDP](IMG/UDP.png)
+
+O campo de comprimento especifica o número de bytes no segmento UDP (cabeçalho mais payload). 
+O valor de comprimento é necessário porque o tamanho do campo de dados pode ser diferente de um segmento UDP para o outro. A soma de verificação é usada por quem recebe o pacote para verificar se foram introduzidos erros no segmento (por mais que o UDP não faça nada com essa informação), a soma de verificação também é usada para alguns campos no cabeçalho IP.
+
+
+
+#### ICMP - Protocolo de Mensagens de Controle da Internet
+
+O *icmp* é usado por hosts e roteadores para a comunicação de informações da camada de Rede.  A utilização mais comum do ICMP é para comunicação de erros, quando recebemos uma mensagem `Destination network unreachable` ou `Destination Host Unreachable` independente de onde você viu essa mensagem de erro, ela foi gerada pelo *icmp*. 
+
+Geralmente essas mensagens são enviadas aos hosts pelo roteador; normalmente é ele quem as envia ao não encontrar uma rede ou um host, mas nem sempre, mais para frente vamos ver como utilizar dessas mensagens e quem irá gerar elas é nosso Firewall.
+
+Abaixo segue uma tabela com alguns dos tipos de icmp e seus códigos:
+
+| Tipo ICMP | Código | Descrição                                                    |
+| --------- | ------ | ------------------------------------------------------------ |
+| 0         | 0      | Resposta de echo (resposta para ping)                        |
+| 3         | 0      | Rede de destino inacessível                                  |
+| 3         | 1      | Máquina de destino inacessível                               |
+| 3         | 2      | Protocolo de destino inacessível                             |
+| 3         | 3      | Porta de destino inacessível                                 |
+| 3         | 4      | Fragmentação necessária mas impossível devido à bandeira (flag) DF |
+| 3         | 6      | Rede de destino desconhecida                                 |
+| 3         | 7      | Máquina de destino desconhecida                              |
+| 4         | 0      | Repressão da origem (controle de congestionamento)           |
+| 8         | 0      | Echo request (Envio do ping)                                 |
+| 9         | 0      | Anúncio do roteador                                          |
+| 10        | 0      | Descoberta do roteador                                       |
+| 11        | 0      | TTL expirado                                                 |
+| 12        | 0      | Cabeçalho IP inválido                                        |
+
+
+
+#### ICMPv6 (Internet Control Message Protocol)
+
+O ICMPv6 é uma versão aprimorada do protocolo ICMPv4, ela foi desenvolvida para ser utilizada em com o IPv6. A nova versão faz tudo o que sua versão anterior poderia fazer, mas novas funcionalidades foram incrementadas, com a chegada do icmpv6 alguns protocolos se uniram ao icmpv6, sendo assim, deixando de existir. Os protocolos são:
+
+- ARP (Address Resolution Protocol), o objetivo é mapear os endereços fisicos através do endereços lógicos (Traduz de IPv6 para MAC).
+- RARP (Reverse Address Resolution Protocol), é o inverso do ARP, mapeando os endereços lógicos para endereços fisicos (Traduz de MAC para IPv6).
+- IGMP (Internet Group Management Protocol), que atua com o gerenciamento de membros de grupos multicast.
+
+O ICMPv6 é um protocolo de camada 3, mas é encapsulado dentro do pacote IP. Isso significa que firewalls operando na camada de rede, com o IPv6, podem bloquear funções extremamente básicas como a descoberta dos vizinhos e a autoconfiguração.
+
+Assim como o icmpv4, a versão 6 também possui tipos e códigos, vou exibir apenas os tipos de mensagem e não os códigos, os códigos dão um detalhe a mais do problema, mas existem muitos códigos para cada tipos de mensagem, para ver a lista completa veja no site da [IANA](https://www.iana.org/assignments/icmpv6-parameters/icmpv6-parameters.xhtml):
+
+| Tipo de mensagem | Descrição                                        |
+| ---------------- | ------------------------------------------------ |
+| 1                | Destination Unreachable                          |
+| 2                | Packet Too Big                                   |
+| 3                | Time Exceeded                                    |
+| 4                | Parameter Problem                                |
+| 128              | Echo Request (Requisição do ping)                |
+| 129              | Echo Reply (Resposta do ping)                    |
+| 135              | Neighbor Solicitation                            |
+| 136              | Neighbor Advertisement                           |
+| 141              | Inverse Neighbor Discovery Solicitation Message  |
+| 142              | Inverse Neighbor Discovery Advertisement Message |
+| 148              | Certification Path Solicitation Message          |
+| 149              | Certification Path Advertisement Message         |
+
+
+
+#### Portas
+
+As portas usadas na comunicação variam de acordo com cada range e necessidade, segue algumas abaixo:
 
 | Portas      | Tipo de porta | Descrição                                                    |
 | ----------- | ------------- | ------------------------------------------------------------ |
@@ -213,32 +412,91 @@ As portas podem estar em 3 estados diferentes, são eles:
 
 **Reservado**: os números de porta reservados não estão disponíveis para atribuição regular; eles são "atribuídos à IANA" para fins especiais.
 
-
-
 Quem cuida da atribuição de cada porta e serviço é a IANA, você pode ler a [RFC 6335](https://tools.ietf.org/html/rfc6335) para entender melhor esse processo ou a [RFC1340](https://tools.ietf.org/html/rfc1340) onde explica melhor a atribuição de portas.
 
 O Linux tem um arquivo contendo as principais portas e serviços vinculadas a essas portas, o arquivo fica localizado em `/etc/services`.
 
-
-
-#### Definindo as políticas das Chains da tabela Filter
-
-O jeito mais fácil de proteger sua rede ou host é bloqueando tudo e permitindo somente o necessário, para isso vamos alterar as políticas das Chains da tabela Filter, que por padrão é aceitar tudo, nesse caso, vamos negar tudo e passaremos a liberar somente o necessário.
+Vamos ver como se faz para liberar algumas portas:
 
 ```bash
-# Defininfo a politica da Chain INPUT como DROP:
-╼ \# iptables -t filter -P INPUT DROP
+## Essas primeiras regras tem como objetivo entrar no firewall.
 
-# Defininfo a politica da Chain OUTPUT como DROP:
-╼ \# iptables -t filter -P OUTPUT DROP
+# vamos liberar tudo que entrar na porta 80 que seja tcp:
+╼ \# iptables -t filter -A INPUT -p tcp --dport 80 -j ACCEPT
+# Estou aceitando apenas pacotes que tenham como destino a porta 80.
 
-# Defininfo a politica da Chain FORWARD como DROP:
-╼ \# iptables -t filter -P FORWARD DROP
+# vamos liberar tudo que entrar na porta 22 que seja tcp:
+╼ \# iptables -t filter -A INPUT -p tcp --dport 22 -j ACCEPT
+
+## As próxima regras tem como objetivo sair do do fw e ir para outro host.
+# vamos liberar tudo que sair com destino a porta 80 que seja tcp:
+╼ \# iptables -t filter -A OUTPUT -p tcp --dport 80 -j ACCEPT
+
+# vamos liberar tudo que sair com destino a porta 22 que seja tcp:
+╼ \# iptables -t filter -A OUTPUT -p tcp --dport 22 -j ACCEPT
 ```
 
 
 
-#### Liberando acesso a interface Loopback (127.0.0.1)
+Algumas das portas mais usadas são:
+
+```
+ftp-data	20/tcp
+ftp			21/tcp
+ssh			22/tcp				# SSH Remote Login Protocol
+telnet		23/tcp
+domain		53/tcp				# Domain Name Server
+domain		53/udp
+bootps		67/udp				# DHCP
+bootpc		68/udp
+http		80/tcp				www		# WorldWideWeb HTTP
+ntp			123/udp				# Network Time Protocol
+snmp		161/tcp				# Simple Net Mgmt Protocol
+snmp		161/udp
+https		443/tcp				# http protocol over TLS/SSL
+route		520/udp				router routed	# RIP
+domain-s	853/tcp				# DNS over TLS [RFC7858]
+domain-s	853/udp				# DNS over DTLS [RFC8094]
+socks		1080/tcp			# socks proxy server
+nfs			2049/tcp			# Network File System
+nfs			2049/udp			# Network File System
+xmpp-client	5222/tcp			jabber-client	# Jabber Client Connection
+mdns		5353/udp			# Multicast DNS
+http-alt	8080/tcp			webcache	# WWW caching service
+nsca		5667/tcp			# Nagios Agent - NSCA
+tproxy		8081/tcp			# Transparent Proxy
+omniorb		8088/tcp			# OmniORB
+omniorb		8088/udp			
+```
+
+
+
+
+
+#### Definindo políticas
+
+As políticas do firewall entra em ação se nenhuma regra der match com o pacote, uma das maneiras mais fáceis de trabalhar com Firewall é bloqueando tudo e permitindo somente o necessário, para isso vamos alterar as políticas das Chains para ver como faz. O padrão sem mudar nada é aceitar tudo, nesse caso, vamos negar tudo e passaremos a liberar somente o necessário.
+
+Para definir uma política como DROP, REJECT ou ACCEPT usamos a opção `-P` e passamos a Chain com a tabela que queremos mudar a política:
+
+```bash
+## Vamos definir as políticas da tabela Table como DROP
+
+# Definindo a politica das Chains como DROP na tabela FILTER:
+╼ \# iptables -t filter -P INPUT DROP
+╼ \# iptables -t filter -P OUTPUT DROP
+╼ \# iptables -t filter -P FORWARD DROP
+
+# Definindo a politica das Chains como DROP na tabela NAT:
+╼ \# iptables -t nat -P INPUT DROP
+╼ \# iptables -t nat -P OUTPUT DROP
+╼ \# iptables -t nat -P PREROUTING DROP
+╼ \# iptables -t nat -P POSTROUTING DROP
+```
+
+
+
+#### Interface Loopback (127.0.0.1)
 
 Quando falamos de endereço loopback, o primeiro IP que vem a mente é `127.0.0.1`, porém, esse é o endereço IP mais utilizado, a [RCF 3330](https://tools.ietf.org/html/rfc3330) explica melhor os Blocos de endereços reservados.
 
@@ -253,83 +511,30 @@ IANA.IETF. Disponível em <https://tools.ietf.org/html/rfc3330>. Acesso em 12 Ab
 Dessa forma, para que no futuro possa utilizar esse bloco sem preocupações, vamos liberar o acesso a toda rede `128.0.0.0/8`.
 
 ```bash
+### Criando regras detalhadas ###
 # Liberando os pacotes que entram:
 ╼ \# iptables -t filter -A INPUT -s 127.0.0.0/8 -d 127.0.0.0/8 -j ACCEPT
 
 # Liberando os pacotes que saem:
 ╼ \# iptables -t filter -A OUTPUT -s 127.0.0.0/8 -d 127.0.0.0/8 -j ACCEPT
 
-```
 
-
-
-#### Resumo das regras (para script (Firewall de HOST))
-
-```bash
-# Defininfo a politica da Chain INPUT como DROP:
-iptables -t filter -P INPUT DROP
-
-# Defininfo a politica da Chain OUTPUT como DROP:
-iptables -t filter -P OUTPUT DROP
-
-# Defininfo a politica da Chain FORWARD como DROP:
-iptables -t filter -P FORWARD DROP
-
+### Criando uma regras mais simples ###
 # Liberando os pacotes que entram:
-iptables -t filter -A INPUT -s 127.0.0.0/8 -j ACCEPT -m comment --comment "Libera pacotes na rede loopback (127.0.0.0/8) que estiver entrando."
+╼ \# iptables -t filter -A INPUT -i lo -j ACCEPT
 
 # Liberando os pacotes que saem:
-iptables -t filter -A OUTPUT -s 127.0.0.0/8 -j ACCEPT -m comment --comment "Libera pacotes na rede loopback (127.0.0.0/8) que estiver saindo."
-
-# Liberando consulta ICMP do tipo 8 (echo request (pergunta)) entrando no meu host:
-iptables -t filter -A OUTPUT -p icmp --icmp-type 8 -s IP -d 0/0 -j ACCEPT -m comment --comment "Liberando pacotes ICMP do tipo 8 (echo request (pergunta)) que estiver saindo."
-
-# Liberando consulta ICMP do tipo 0 (echo reply (resposta)) entrando no meu host:
-iptables -t filter -A INPUT -p icmp --icmp-type 0 -s 0/0 -d IP -j ACCEPT -m comment --comment "Liberando pacotes ICMP do tipo 0 (echo reply (resposta)) que estiver entrando."
-
-# Desa forma meu host consegue efetuar perguntas icmp e obter respostas, mas
-# meu host não vai responder a requisições de outros hosts.
-
-
-# Liberando consulta DNS:
-iptables -t filter -A OUTPUT -p udp -s IP -d 0/0 --dport 53 -j ACCEPT -m comment --comment "Liberando consulta DNS".
-
-# Liberando resposta DNS:
-iptables -t filter -A INPUT -p udp -s 0/0 --sport 53 -d IP -j ACCEPT -m comment --comment "Liberando resposta DNS."
-
-## Após liberar o DNS, não vamos conseguir acessar a sites, mesmo tendo o IP,
-## o acesso a sites é feito geralmenta na porta 80(http) e 443(https),
-## portanto, precisamos liberar essas portas.
-
-# Liberando requisição HTTP:
-iptables -t filter -A OUTPUT -p tcp -s IP -d 0/0 --dport 80 -j ACCEPT -m comment --comment "Liberando requisição HTTP."
-
-# Liberando resposta HTTP:
-iptables -t filter -A INPUT -p tcp -s 0/0 --sport 80 -d IP -j ACCEPT -m comment --comment "Liberando resposta HTTP."
-
-# Liberando requisição HTTPS:
-iptables -t filter -A OUTPUT -p tcp -s IP -d 0/0 --dport 443 -j ACCEPT -m comment --comment "Liberando requisição HTTPS."
-
-# Liberando resposta HTTPS:
-iptables -t filter -A INPUT -p tcp -s 0/0 --sport 443 -d IP -j ACCEPT -m comment --comment "Liberando resposta HTTPS."
-
-
-## Regra mais inteligente (HTTP e HTTPS) - Usando módulo MULTIPORT
-
-# Liberando requisição HTTP e HTTPS:
-iptables -t filter -A OUTPUT -p tcp -m multiport -s IP -d 0/0 --dport 80,443 -j ACCEPT -m comment --comment "Liberando requisição HTTP e HTTPS."
-
-# Liberando resposta HTTP e HTTPS:
-iptables -t filter -A INPUT -p tcp -m multiport -s 0/0 --sport 80,443 -d IP -j ACCEPT -m comment --comment "Liberando resposta HTTP e HTTPS."
+╼ \# iptables -t filter -A OUTPUT -o lo -j ACCEPT
 ```
 
 
 
-### Alterando uma regra ja criada
+### Alterando uma regra existente
 
 Para alterar uma regra que já está em produção (Funcionando), ao invés de apagar e criar de novo, nós podemos editar essa regra.
 
 ```bash
+# Primeiro precisamos ver qual o número da regra na chain em questão:
 ╼ \# iptables -nL --line-numbers
 Chain INPUT (policy DROP)
 num  target     prot opt source               destination         
@@ -347,7 +552,7 @@ num  target     prot opt source               destination
 
 Após listar as regras, usei a opção `--line-numbers` para saber a linha de cada regra, dessa forma poderemos alterar ou até mesmo apagar as regras a partir do número da regra de cada Chain.
 
-Alterando uma regra de SSH, vamos colocar um comentario na regra ja existente:
+Alterando uma regra de SSH, vamos colocar um comentário na regra ja existente:
 
 ```bash
 # Mudando as regras da Chain INPUT:
@@ -405,7 +610,7 @@ Primeiro, precisamos habilitar o roteamento entre interfaces no kernel:
 # Encontre a linha 'net.ipv4.ip_forward' e certifique-se que ela esteja com valor 1
 # (net.ipv4.ip_forward=1), geralmente está na linha 28, mas isso pode mudar.
 
-# Exibe o valor fa variável net.ipv4.ip_forward
+# Exibe o valor da variável net.ipv4.ip_forward
 ╼ \# sysctl -p
 
 # Definir o roteamento no Kernel até a proxima reinicialização:
@@ -414,7 +619,7 @@ Primeiro, precisamos habilitar o roteamento entre interfaces no kernel:
 
 
 
-#### Os dois tipos de NAT
+#### O SNAT e o DNAT
 
 - NAT de origem (SNAT)
 
@@ -859,4 +1064,21 @@ case "$1" in
         exit 1
         ;;
 esac
+```
+
+
+
+### Salvando as regras
+
+Como as do iptables são criadas na memória, toda vez que o host for reiniciado as regras serão perdidas, para isso temos um comando para salvar as regras que estão na memória e um outro comando que ativa essas regras salvas anteriormente.
+
+- **iptables-save**  - Salva as regras num arquivo;
+- **iptables-restore** - Ativa as regras salvas.
+
+```bash
+# Salvando as regras (Backup):
+╼ \# iptables-save > /backup/firewall.rules
+
+# Fazendo o restore das regras:
+╼ \# iptables-restore /backup/firewall.rules
 ```
