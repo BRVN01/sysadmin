@@ -520,12 +520,6 @@ Para definir uma política como DROP, REJECT ou ACCEPT usamos a opção `-P` e p
 ╼ \# iptables -t filter -P INPUT DROP
 ╼ \# iptables -t filter -P OUTPUT DROP
 ╼ \# iptables -t filter -P FORWARD DROP
-
-# Definindo a politica das Chains como DROP na tabela NAT:
-╼ \# iptables -t nat -P INPUT DROP
-╼ \# iptables -t nat -P OUTPUT DROP
-╼ \# iptables -t nat -P PREROUTING DROP
-╼ \# iptables -t nat -P POSTROUTING DROP
 ```
 
 
@@ -1038,12 +1032,10 @@ Opções mais usadas:
 
   O pacote pertence a uma conexão já existente. Cria-se uma conexão estabelecida após receber o `SYN+ACK`, por mais que o cliente ainda não tenha enviado um `ACK`, nesse momento o servidor já aloca recursos para esse aperto de mão.
   
-
 - RELATED
 
   O pacote tem relação indireta com outro pacote de uma conexão já estabelecida.
   
-
 - NEW
 
   Uma nova conexão, é criado uma nova conexão quando recebemos um pacote `SYN`.
