@@ -204,7 +204,7 @@ Segue abaixo uma imagem que descreve o fluxo de dados de um pacote assim que rec
 | -o (interface)       | (**out-interface**) Interface da qual um pacote será enviado |
 | --sport (porta)      | (**Source-port**) Porta de origem do pacote                  |
 | --dport (porta)      | (**Destination-port**) Porta de destino do pacote            |
-| -m (módulo)          | (Ex: **Comment**) Faz um comentario na regra (uso: **-m comment --comment "Comentario"**) |
+| -m (módulo)          | (**Module**) Usa um módulo                                   |
 |                      | (**Multiport**) Podemos colocar várias portas                |
 | LOG --log-prefix     | (**LOG**) Cria um sistema de log                             |
 
@@ -729,6 +729,97 @@ Robert_Keith.a10networks. Disponível em <https://www.a10networks.com/blog/carri
 
 
 
+
+### Criando log para as regras
+
+Para criar um sistemas de log, precisamos usar o parametro `LOG` ou `LOG --log-prefix '[Pacote entrando SSH]'` para adicionar uma string ao log.
+
+Isso é apenas um exemplo de log para pacotes entrantes na porta 22.
+
+Configurando o Rsyslog para capturar os logs do iptables:
+
+```bash
+╼ \# vim /etc/rsyslog.d/10-iptables.conf
+
+# Colocar o texto abaixo:
+kern.warning      /var/log/iptables.log
+
+# O iptables usa a facilidade de nivel kern.warn. Podemos encaminhar os logs do iptables
+# para um arquivo específico.
+
+# Agora reinicie o serviço:
+╼ \# /etc/init.d/rsyslog restart
+```
+
+Para aplicar os log na regra, precisamos criar a regra duas vezes, uma com a ação de registrar o log e outra com a ação de aceitar ou dropar.
+
+Forma errada de criar um sistema de log:
+
+```sh
+╼ \# iptables -t filter -A OUTPUT -p tcp -s 10.0.2.15 --sport 22 -d 10.0.2.2 -j LOG --log-prefix '[SSH TCP OUTPUT]'
+
+╼ \# iptables -t filter -I OUTPUT -p tcp -s 10.0.2.15 --sport 22 -d 10.0.2.2 -j ACCEPT
+
+# Assim que o iptables faz uma ação {ACCPET, REJECT ou DROP} ele aplica a ação e não
+# testa as outras regras, por isso temos que ter cuidado com as regras, por exemplo:
+╼ \# iptables -t filter -A INPUT -s 192.168.0.0/24 -j DROP
+╼ \# iptables -t filter -A INPUT -s 192.168.0.15/24 -j ACCEPT
+
+# A primeira regra irá descartar tudo da rede 192.168.0.0./24, mas logo abaixo eu tenho
+# uma regra que permite apenas um host dessa rede, dessa forma esse host nunca irá
+# se comunicar através do firewall, após aplicar o DROP, o iptables não vai verificar as
+# outras regras para poder saber se pode ou não. Forma correta:
+╼ \# iptables -t filter -A INPUT -s 192.168.0.15/24 -j ACCEPT
+╼ \# iptables -t filter -A INPUT -s 192.168.0.0/24 -j DROP
+
+# Dessa forma se for o IP 192.168.0.15/24 o firewall irá aceitar, caso não seja ele
+# o pacote será descartado.
+
+# O sistemas de logs funciona da mesma forma, portanto, a regra do log tem que estar 
+# no topo da lista de regras, caso contrário, nao vai funcionar.
+```
+
+
+
+### Criando um Firewall de Rede
+
+Vamos controlar o acesso de outras rede, do jeito que está, apenas implementando o `masquerading`, mas os outros host, que estão em outras redes não vão ter acesso, pois bloqueamos tudo.
+
+Sempre que um pacote deve trafegar entre "redes", devemos usar a Chain `FORWARD`.
+
+```bash
+# Liberando ping para a rede 192.168.0.0/24
+iptables -t filter -A FORWARD -p icmp -s 192.168.0.0/24 -d 0/0 -j ACCEPT
+iptables -t filter -A FORWARD -p icmp -s 0/0 -d 192.168.0.0/24 -j ACCEPT
+
+# Liberando DNS para a rede 192.168.0.0/24
+iptables -t filter -A FORWARD -p udp -s 192.168.0.0/24 -d 0/0 --dport 53 -j ACCEPT
+iptables -t filter -A FORWARD -p udp -s 0/0 --sport 53 -d 192.168.0.0/24 -j ACCEPT
+
+# Liberando HTTP e HTTPS para a rede 192.168.0.0/24
+iptables -t filter -A FORWARD -p tcp -m multiport -s 192.168.0.0/24 -d 0/0 --dport 80,443 -j ACCEPT
+iptables -t filter -A FORWARD -p tcp -m multiport -s 0/0 --sport 80,443 -d 192.168.0.0/24 -j ACCEPT
+```
+
+
+
+### Salvando as regras
+
+Como as do iptables são criadas na memória, toda vez que o host for reiniciado as regras serão perdidas, para isso temos um comando para salvar as regras que estão na memória e um outro comando que ativa essas regras salvas anteriormente.
+
+- **iptables-save**  - Salva as regras num arquivo;
+- **iptables-restore** - Ativa as regras salvas.
+
+```bash
+# Salvando as regras (Backup):
+╼ \# iptables-save > /backup/firewall.rules
+
+# Fazendo o restore das regras:
+╼ \# iptables-restore /backup/firewall.rules
+```
+
+
+
 ### Colocando as regras na inicialização do sistema
 
 Vamos adicionar um script para rodar na inicialização do sistema, sempre que o servidor iniciar, esse script vai rodar, inicializando assim as regras do nosso firewall.
@@ -764,7 +855,7 @@ exit 0 # Tem que terminar com 0
 # script 'rc.local' foi executado com sucesso.
 ```
 
-Script Firewall.sh:
+Script Firewall.sh (coloquei regras bem simples):
 
 ```shell
 #!/bin/bash
@@ -795,30 +886,6 @@ start () {
 
     # Defininfo a politica da Chain FORWARD como DROP:
     iptables -t filter -P FORWARD DROP
-
-    # Liberando os pacotes que entram:
-	iptables -t filter -A INPUT -s 127.0.0.0/8 -j ACCEPT -m comment --comment "Libera pacotes na rede loopback (127.0.0.0/8) que estiver entrando."
-
-	# Liberando os pacotes que saem:
-	iptables -t filter -A OUTPUT -s 127.0.0.0/8 -j ACCEPT -m comment --comment "Libera pacotes na rede loopback (127.0.0.0/8) que estiver saindo."
-
-	# Liberando consulta ICMP do tipo 8 (echo request (pergunta)) entrando no meu host:
-	iptables -t filter -A OUTPUT -p icmp --icmp-type 8 -s IP -d 0/0 -j ACCEPT -m comment --comment "Liberando pacotes ICMP do tipo 8 (echo request (pergunta)) que estiver saindo."
-
-	# Liberando consulta ICMP do tipo 0 (echo reply (resposta)) entrando no meu host:
-	iptables -t filter -A INPUT -p icmp --icmp-type 0 -s 0/0 -d IP -j ACCEPT -m comment --comment "Liberando pacotes ICMP do tipo 0 (echo reply (resposta)) que estiver entrando."
-
-    # Liberando consulta DNS:
-	iptables -t filter -A OUTPUT -p udp -s IP -d 0/0 --dport 53 -j ACCEPT -m comment --comment "Liberando consulta DNS".
-
-	# Liberando resposta DNS:
-	iptables -t filter -A INPUT -p udp -s 0/0 --sport 53 -d IP -j ACCEPT -m comment --comment "Liberando resposta DNS."
-
-    # Liberando requisição HTTP e HTTPS:
-	iptables -t filter -A OUTPUT -p tcp -m multiport -s IP -d 0/0 --dport 80,443 -j ACCEPT -m comment --comment "Liberando requisição HTTP e HTTPS."
-
-	# Liberando resposta HTTP e HTTPS:
-	iptables -t filter -A INPUT -p tcp -m multiport -s 0/0 --sport 80,443 -d IP -j ACCEPT -m comment --comment "Liberando resposta HTTP e HTTPS."
 
     ### (Virtual BOX) Liberando requisição SSH:
     iptables -t filter -I INPUT -p udp -s 10.0.2.2 -d 10.0.2.15 --dport 22 -j ACCEPT
@@ -854,231 +921,67 @@ case "$1" in
 esac
 ```
 
+Podemos criar um script que fará tudo para nós (como feito acima) e adicionar na inicialização do sistema, podemos usar o comando `iptables-restore` dentro de `rc.local` ou usar um método mais fácil, vamos instalar o pacote `iptables-persistent`, assim que for instalado, ele perguntará se você quer salvar as regras, diga que sim.
 
-
-### Criando log para as regras
-
-Para criar um sistemas de log, precisamos usar o parametro `LOG --log-prefix '[Pacote entrando SSH]'`.
-
-Isso é apenas um exemplo de log para pacotes entrantes na porta 22.
-
-Configurando o Rsyslog para capturar os logs do iptables:
+As regras serão salvas em `/etc/iptables/rules.v4` e `/etc/iptables/rules.v6`.
 
 ```bash
-╼ \# vim /etc/rsyslog.d/10-iptables.conf
+# Use o comando abaixo para atualizar o arquivo de regras:
+╼ \# /etc/init.d/netfilter-persistent save
 
-# Colocar o texto abaixo:
-kern.warning      /var/log/iptables.log
-
-# O iptables usa a facilidade de nivel kern.warn. Podemos encaminhar os logs do iptables
-# para um arquivo específico.
-
-# Agora reinicie o serviço:
-╼ \# /etc/init.d/rsyslog restart
-```
-
-Para aplicar os log na regra, precisamos criar a regra duas vezes, uma com a ação de registrar o log e outra com a ação de aceitar ou dropar.
-
-Forma errada de criar um sistema de log:
-
-```sh
-iptables -t filter -I OUTPUT -p tcp -s 10.0.2.15 --sport 22 -d 10.0.2.2 -j ACCEPT -m comment --comment "Liberando saida SSH (rcp)." 
-
-iptables -t filter -A OUTPUT -p tcp -s 10.0.2.15 --sport 22 -d 10.0.2.2 -j LOG --log-prefix '[SSH TCP OUTPUT]'
-
-# Assim que o iptables faz uma ação {ACCPET, REJECT ou DROP} ele aplica a ação e não
-# testa as outras regras, por isso temos que ter cuidado com as regras, por exemplo:
-iptables -t filter -A INPUT -s 192.168.0.0/24 -j DROP
-iptables -t filter -A INPUT -s 192.168.0.15/24 -j ACCEPT
-
-# A primeira regra irá descartar tudo da rede 192.168.0.0./24, mas logo abaixo eu tenho
-# uma regra que permite apenas um host dessa rede, dessa forma esse host nunca irá
-# se comunicar através do firewall, após aplicar o DROP, o iptables não vai verificar as
-# outras regras para poder saber se pode ou não. Forma correta:
-iptables -t filter -A INPUT -s 192.168.0.15/24 -j ACCEPT
-iptables -t filter -A INPUT -s 192.168.0.0/24 -j DROP
-
-# Dessa forma se for o IP 192.168.0.15/24 o firewall irá aceitar, caso não seja ele
-# o pacote será descartado.
-
-# O sistemas de logs funciona da mesma forma, portanto, a regra do log tem que estar 
-# no topo da lista de regras, caso contrário, nao vai funcionar.
-```
-
-Forma correta de crias os logs:
-
-```shell
-iptables -t filter -A OUTPUT -p tcp -s 10.0.2.15 --sport 22 -d 10.0.2.2 -j LOG --log-prefix '[SSH TCP OUTPUT]'
-
-iptables -t filter -I OUTPUT -p tcp -s 10.0.2.15 --sport 22 -d 10.0.2.2 -j ACCEPT -m comment --comment "Liberando saida SSH (rcp)." 
+# Use o comando abaixo para recarregar a configuração na memória:
+╼ \# /etc/init.d/netfilter-persistent reload
 ```
 
 
 
-### Criando um Firewall de Rede
+## Módulos
 
-Já implementamos boa parte das regras de host no nosso firewall, agora precisamos implementar as regras de rede, vamos controlar o acesso de outras rede, do jeito que está, apenas implementando o `masquerading` os outros host de outras redes vão vão ter acesso pois bloqueamos tudo.
+Os módulos ampliam as possibilidades do `iptables`, criando regras mais personalizadas e completas.
 
-Sempre que um pacote deve trafegar entre "redes", usamos a Chain FORWARD.
+
+
+### Limit
+
+É usado para restringir a taxa de match em pacotes, também usado para limitar as mensagens de log. Podemos limitar a quantidade de match de um pacote numa regra por tempo e quantidade de pacotes, por exemplo, podemos limitar 5 pacotes por segundo de uma regra específica.
 
 ```bash
-# Liberando ping para a rede 192.168.0.0/24
-iptables -t filter -A FORWARD -p icmp -s 192.168.0.0/24 -d 0/0 -j ACCEPT
-iptables -t filter -A FORWARD -p icmp -s 0/0 -d 192.168.0.0/24 -j ACCEPT
+# Sintaxe: -m limit --limit TEMPO --limit-burst QUANTIDADE_PACOTES
 
-# Liberando DNS para a rede 192.168.0.0/24
-iptables -t filter -A FORWARD -p udp -s 192.168.0.0/24 -d 0/0 --dport 53 -j ACCEPT
-iptables -t filter -A FORWARD -p udp -s 0/0 --sport 53 -d 192.168.0.0/24 -j ACCEPT
+# O tempo pode ser NÚMERO/TEMPO
+# O tempo pode ser s=segundo, m=minuto, h=hora, d=dia.
 
-# Liberando HTTP e HTTPS para a rede 192.168.0.0/24
-iptables -t filter -A FORWARD -p tcp -m multiport -s 192.168.0.0/24 -d 0/0 --dport 80,443 -j ACCEPT
-iptables -t filter -A FORWARD -p tcp -m multiport -s 0/0 --sport 80,443 -d 192.168.0.0/24 -j ACCEPT
+# Quantidade de pacotes é a quantidade de pacotes permitida no tempo especificado.
+
+╼ \# iptables -A INPUT -p icmp -s 192.168.122.0/24 -m limit --limit 1/m --limit-burst 10 -j ACCEPT
+╼ \# iptables -A INPUT -p icmp -s 192.168.122.0/24 -j DROP
 ```
 
+Todo pacote que cair nessa regra, ficará nela até que seja atingido o limite estabelecido, por exemplo, até atingir o limite de 10 pacotes (`--limit-burst 10`) em 1 minuto (`--limit 1/m`), qualquer pacote que entre nesse regra ficará nela até que o limite seja atingido, depois que o limite for atingido, ele começará a dropar os pacotes que estiverem fora do limite (precisei colocar um drop no final porque a política padrão é ACCEPT).
+
+O problema desse módulo é que qualquer um dessa rede pode inviabilizar o tráfego para os demais, afinal, ele vai bloquear para todos da regra.
+
+Essa regra volta do inicio toda vez que passa o tempo completo estabelecido, por exemplo, no nosso caso, toda vez que se passa 1 minuto, voltamos aceitar 10 pacotes em um segundo.
+
+Um módulo melhor que esse é o `connlimit`.
 
 
-Script Firewall.sh (**Para nosso Firewall de borda** (rede)):
+
+### CONNLIMIT
+
+Faz exatamente o que o módulo `limit` faz, mas esse bloqueia baseado no IP de origem.
 
 ```bash
-#!/bin/bash
+# Sintaxe: -m connlimit  --connlimit-above 2 -j DROP
 
-stop () {
-	# Limpando as regras ta tabela Filter:
-    iptables -t filter -F
-
-    # Defininfo a politica da Chain INPUT como DROP:
-    iptables -t filter -P INPUT ACCEPT
-
-    # Defininfo a politica da Chain OUTPUT como DROP:
-    iptables -t filter -P OUTPUT ACCEPT
-
-    # Defininfo a politica da Chain FORWARD como DROP:
-    iptables -t filter -P FORWARD ACCEPT
-}
-
-start () {
-	# Limpando as regras ta tabela Filter:
-    iptables -t filter -F
-
-    # Defininfo a politica da Chain INPUT como DROP:
-    iptables -t filter -P INPUT DROP
-
-    # Defininfo a politica da Chain OUTPUT como DROP:
-    iptables -t filter -P OUTPUT DROP
-
-    # Defininfo a politica da Chain FORWARD como DROP:
-    iptables -t filter -P FORWARD DROP
-
-    # Liberando os pacotes que entram:
-	iptables -t filter -A INPUT -s 127.0.0.0/8 -j ACCEPT -m comment --comment "Libera pacotes na rede loopback (127.0.0.0/8) que estiver entrando."
-
-	# Liberando os pacotes que saem:
-	iptables -t filter -A OUTPUT -s 127.0.0.0/8 -j ACCEPT -m comment --comment "Libera pacotes na rede loopback (127.0.0.0/8) que estiver saindo."
-
-	# Liberando consulta ICMP do tipo 8 (echo request (pergunta)) entrando no meu host:
-	iptables -t filter -A OUTPUT -p icmp --icmp-type 8 -s 10.0.2.15 -d 0/0 -j LOG --log-prefix '[ICMP saindo]'
-	iptables -t filter -A OUTPUT -p icmp --icmp-type 8 -s 10.0.2.15 -d 0/0 -j ACCEPT -m comment --comment "Liberando pacotes ICMP do tipo 8 (echo request (pergunta)) que estiver saindo."
-
-
-	iptables -t filter -A OUTPUT -p icmp --icmp-type 8 -s 192.168.0.11 -d 192.168.0.0/24 -j LOG --log-prefix '[ICMP 192.168.0.0/24]'
-        iptables -t filter -A OUTPUT -p icmp --icmp-type 8 -s 192.168.0.11 -d 192.168.0.0/24 -j ACCEPT
-
-	# Liberando consulta ICMP do tipo 0 (echo reply (resposta)) entrando no meu host:
-	iptables -t filter -A INPUT -p icmp --icmp-type 0 -s 0/0 -d 10.0.2.15 -j LOG --log-prefix '[ICMP ENTRANDO]'
-	iptables -t filter -A INPUT -p icmp --icmp-type 0 -s 0/0 -d 10.0.2.15 -j ACCEPT -m comment --comment "Liberando pacotes ICMP do tipo 0 (echo reply (resposta)) que estiver entrando."
-
-        iptables -t filter -A INPUT -p icmp --icmp-type 0 -s 192.168.0.0/24 -d 192.168.0.11 -j LOG --log-prefix '[ICMP ENTRANDO]'
-        iptables -t filter -A INPUT -p icmp --icmp-type 0 -s 192.168.0.0/24 -d 192.168.0.11 -j ACCEPT
-
-
-    # Liberando consulta DNS:
-	iptables -t filter -A OUTPUT -p udp -s 10.0.2.15 -d 0/0 --dport 53 -j ACCEPT -m comment --comment "Liberando consulta DNS".
-
-	# Liberando resposta DNS:
-	iptables -t filter -A INPUT -p udp -s 0/0 --sport 53 -d 10.0.2.15 -j ACCEPT -m comment --comment "Liberando resposta DNS."
-
-    # Liberando requisição HTTP e HTTPS:
-	iptables -t filter -A OUTPUT -p tcp -m multiport -s 10.0.2.15 -d 0/0 --dport 80,443 -j ACCEPT -m comment --comment "Liberando requisição HTTP e HTTPS."
-
-	# Liberando resposta HTTP e HTTPS:
-	iptables -t filter -A INPUT -p tcp -m multiport -s 0/0 --sport 80,443 -d 10.0.2.15 -j ACCEPT -m comment --comment "Liberando resposta HTTP e HTTPS."
-
-    ### (Virtual BOX) Liberando requisição SSH:
-    iptables -t filter -I INPUT -p udp -s 10.0.2.2 -d 10.0.2.15 --dport 22 -j ACCEPT
-    iptables -t filter -I INPUT -p tcp -s 10.0.2.2 -d 10.0.2.15 --dport 22 -j ACCEPT
-
-    # (Virtual BOX) Liberando resposta SSH:
-    iptables -t filter -I OUTPUT -p udp -s 10.0.2.15 --sport 22 -d 10.0.2.2 -j ACCEPT
-    iptables -t filter -I OUTPUT -p tcp -s 10.0.2.15 --sport 22 -d 10.0.2.2 -j ACCEPT
-
-    iptables -t filter -I OUTPUT -p tcp -o enp0s8 -d 192.168.0.0/24 --dport 22 -j ACCEPT
-    iptables -t filter -I INPUT -p tcp -i enp0s8 -s 192.168.0.0/24 --sport 22 -j ACCEPT
-
-    ######################## FORWARD #########################
-
-    iptables -t filter -A FORWARD -p icmp -s 192.168.0.0/24 -d 0/0 -j LOG --log-prefix '[ICMP rede 192.168.0.0/24 para INTERNET]'
-    iptables -t filter -A FORWARD -p icmp -s 0/0 -d 192.168.0.0/24 -j LOG --log-prefix '[ICMP INTERNET para rede 192.168.0.0/24]'
-
-    iptables -t filter -A FORWARD -p icmp --icmp-type 8 -s 192.168.0.0/24 -d 0/0 -j ACCEPT -m comment --comment "Liberando consulta ICMP para rede 192.168.0.0/24."
-    iptables -t filter -A FORWARD -p icmp --icmp-type 0 -s 0/0 -d 192.168.0.0/24 -j ACCEPT -m comment --comment "Liberando resposta ICMP para rede 192.168.0.0/24."
-
-    iptables -t filter -A FORWARD -p udp -s 192.168.0.0/24 -d 0/0 --dport 53 -j LOG --log-prefix '[DNS rede 192.168.0.0/24 para INTERNET]'
-    iptables -t filter -A FORWARD -p udp -s 0/0 --sport 53 -d 192.168.0.0/24 -j LOG --log-prefix '[DNS INTERNET para rede 192.168.0.0/24]'
-
-    iptables -t filter -A FORWARD -p udp -s 192.168.0.0/24 -d 0/0 --dport 53 -j ACCEPT -m comment --comment "Liberando consulta DNS para rede 192.168.0.0/24."
-    iptables -t filter -A FORWARD -p udp -s 0/0 --sport 53 -d 192.168.0.0/24 -j ACCEPT -m comment --comment "Liberando resposta DNS para rede 192.168.0.0/24."
-
-
-    iptables -t filter -A FORWARD -p tcp -m multiport -s 192.168.0.0/24 -d 0/0 --dport 80,443 -j LOG --log-prefix '[HTTP(S) rede 192.168.0.0/24 para INTERNET]'
-    iptables -t filter -A FORWARD -p tcp -m multiport -s 0/0 --sport 80,443 -d 192.168.0.0/24 -j LOG --log-prefix '[HTTP(S) INTERNET para rede 192.168.0.0/24]'
-
-    iptables -t filter -A FORWARD -p tcp -m multiport -s 192.168.0.0/24 -d 0/0 --dport 80,443 -j ACCEPT -m comment --comment "Liberando consulta HTTP(S) para rede 192.168.0.0/24."
-    iptables -t filter -A FORWARD -p tcp -m multiport -s 0/0 --sport 80,443 -d 192.168.0.0/24 -j ACCEPT -m comment --comment "Liberando resposta HTTP(S) para rede 192.168.0.0/24."
-
-
-    ######################## NAT #########################
-
-    iptables -t nat -A POSTROUTING -o enp0s3 -j MASQUERADE -m comment --comment "Mascarando os pacotes de outras redes saindo para internet."
-
-}
-
-case "$1" in
-    start)
-	    echo "Iniciando serviço..."
-	    start
-
-	    ;;
-    stop)
-	    echo "Parando serviço..."
-        stop
-
-	;;
-    restart)
-        echo "Reiniciando serviço..."
-	    stop
-	    start
-
-	;;
-    *)
-        echo "Operação inválida"
-        exit 1
-        ;;
-esac
+╼ \# iptables -A INPUT -p tcp -s 192.168.122.0/24 --dport 22 -m connlimit --connlimit-above 2 -j DROP
 ```
 
-
-
-### Salvando as regras
-
-Como as do iptables são criadas na memória, toda vez que o host for reiniciado as regras serão perdidas, para isso temos um comando para salvar as regras que estão na memória e um outro comando que ativa essas regras salvas anteriormente.
-
-- **iptables-save**  - Salva as regras num arquivo;
-- **iptables-restore** - Ativa as regras salvas.
+Se existir mais de 2 conexões para porta 22 (ssh) eu vou dropar essa origem.
 
 ```bash
-# Salvando as regras (Backup):
-╼ \# iptables-save > /backup/firewall.rules
+╼ \# iptables -A INPUT -p icmp -s 192.168.122.0/24 -m connlimit --connlimit-above 3 -j DROP
 
-# Fazendo o restore das regras:
-╼ \# iptables-restore /backup/firewall.rules
+# Com ess regra acima, vou bloquear depois que receber icmp mais de 3 vezes da mesma origem, cuidado que com isso, todos as requisições são bloqueadas por um certo tempo.
 ```
+
