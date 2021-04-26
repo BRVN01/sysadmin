@@ -36,12 +36,12 @@ $ sudo apt-get install acl attr autoconf bind9utils bison build-essential \
   python3-dev xsltproc zlib1g-dev liblmdb-dev lmdb-utils libsystemd-dev libdbus-1-dev -y
 ```
 
-Você pode encontrar essa lista [aqui](https://wiki.samba.org/index.php/Package_Dependencies_Required_to_Build_Samba#Operating_System-independent_Overview)
+Você pode encontrar essa lista [aqui](https://wiki.samba.org/index.php/Package_Dependencies_Required_to_Build_Samba#Operating_System-independent_Overview), porém, a lista acima foi removido os pacotes relacionados ao Python 2.
 
 
 
 ```bash
-# Usar em ultimo caso:
+# Contém pacotes com python 2, usar somente se necessário:
 $ sudo apt-get install acl attr autoconf bind9utils bison build-essential \
   debhelper dnsutils docbook-xml docbook-xsl flex gdb libjansson-dev krb5-user \
   libacl1-dev libaio-dev libarchive-dev libattr1-dev libblkid-dev libbsd-dev \
@@ -75,7 +75,7 @@ cd samba-4.14.3
 
 # O padrão para os binários do Samba é ficar em /usr/local/samba/sbin/, mas podemos mudar isso, basta usar a opção "--sbindir=Novo Local"
 
-# --sysconfdir=/etc/samba/ muda o local dos arquivos de configuração do Samba.
+# --prefix=/etc/samba/ muda o local de instalação do Samba.
 ```
 
 
@@ -83,7 +83,23 @@ cd samba-4.14.3
 Mostrado os passos iniciais, vamos rodar o script de configure do Samba mudando alguns parametros:
 
 ```bash
-# Vou mudar os diretórios dos binários e dos arquivos de configuração:
-$ sudo ./configure --sysconfdir=/etc/samba/ --sbindir=/sbin/
+# Vou mudar os diretórios dos binários e dos arquivos do Samba:
+$ sudo ./configure --sbindir=/sbin/ --prefix=/etc/samba
+
+# Vou omitir todo o processo por ser muito grande, veja o final do script:
+'configure' finished successfully (39.952s)
+
+# Agora vamos iniciar a compilação (teste):
+$ sudo make test
+# Isso vai rodar a compilação do Samba, mas não vai fazer nada de fato, é apenas um teste para vermos como tudo iria se sair durante a compilação real.
+
+# Faça a compilação real:
+$ sudo make
+
+# Agora vamos instalar o nosso código compilado:
+$ sudo make install
+
+# Final da instalação:
+'install' finished successfully (1m59.085s)
 ```
 
