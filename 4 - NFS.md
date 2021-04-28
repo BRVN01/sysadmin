@@ -19,13 +19,88 @@ Vamos a uma rápida introdução dos pacotes:
 | nfs-common        | Debian like | Utilitário para o Cliente NFS.                |
 | nfs-kernel-server | Debian like | Pacote para o Servidor NFS.                   |
 | nfs-utils         | RedHat like | Utilitário para o Cliente NFS e Servidor NFS. |
-|                   | FreeBSD     |                                               |
-|                   |             |                                               |
-|                   |             |                                               |
 
 
 
 ## NFS sobre TCP e UDP
+
+Inicialmente o NFS foi desenvolvido para trabalhar em cima do UDP, porque ele tinha o melhor desempenho nas Redes e nos Servidores daquela época (estamos falando do NFS versão 2), o NFS por esse motivo (trabalhar com UDP) fazia remontagem da sequência dos pacotes e verificação de erros (já que o UDP não faz), mas ainda fica de fora algo muito importante, controle de congestionamento, é essencial para o bom desempenho de redes IP de grande porte (nem UDP nem NFS fazem isso). Na versão 3 do NFS, podemos escolher entre TCP ou UDP, e na versão 4 do NFS, temos somente o uso do TCP.
+
+
+
+## Remote Procedure Calls - RPC
+
+Durante o desenvolvimento do NFS, a equipe de desenvolvimento percebeu que muitos dos problemas relacionados à rede no projeto, que precisavam ser resolvidos para que o NFS funcionasse se aplicavam também à outros serviços baseados em rede. Com isso em mente, eles desenvolveram um método para *chamadas de procedimento remoto* conhecido como RPC. Dessa forma eles resolveriam o problema do NFS e de muitos outros serviços baseados em rede, o RPC abriu as portas para que aplicativos de todos os tipos pudessem executar procedimentos em sistemas remotos como se estivessem sendo executados localmente.
+
+Com a chegada do NFS na versão 4, algumas coisas deixaram de usar esse sistema, como a montagem dos compartilhamentos, o bind da portas, a versão 3 ainda depende de RPCs e como muitas aplicações ainda utilizam a versão 3 por N motivos, o NFS é disponibilizado com os RPCs. As operações que leem/gravam arquivos, montam sistemas de arquivos, acessam metadados de arquivos e verificam permissões de arquivos são implementadas como RPCs.
+
+Alguns exemplos encontrados na versão mais antiga (NFSv3) são:
+
+- rpc.mountd
+
+  Usado para montar o compartilhamento.
+
+- rpcbind (antigo *portmap*)
+
+  Usado para fazer o bind entre as portas do NFS server e Mountd, para que o cliente possa se comunicar com os protocolos corretos nos momentos certos.
+
+- rpc.gssd
+
+  Usado para implementar uma camada de segurança centralizada.
+
+
+
+## State - Mudança da versão 3 para 4
+
+As versões 2 e 3 do NFS não trabalham com *estado*, assim o servidor não controla quais clientes montaram um determinado compartilhamento. Para contornar isso, o servidor NFS envia um cookie na conclusão de uma montagem bem-sucedida. Esse cookie identifica o diretório montado para o servidor NFS, dessa forma temos uma maneira para o cliente acessar seu conteúdo. Os cookies persistem entre as reinicializações do servidor, portanto, uma falha não deixa com que o cliente fique num estado irrecuperável. O cliente pode simplesmente esperar até que o servidor esteja disponível novamente e reenviar a solicitação.
+Já na versão 4 do NFS, o mesmo passou a ser um protocolo com monitoração de estado (tanto o cliente quanto o servidor mantêm informações sobre arquivos abertos e bloqueios). Se uma falha acontecer no servidor, os clientes vão auxiliar o servidor no processo de recuperação, enviando ao servidor suas informações de estado antes da falha ocorrer. Um servidor de retorno espera por um período predefinido para que os clientes anteriores relatem suas informações de estado antes de permitir novas operações e bloqueios. 
+
+O uso de cookies de não existe mais na versão 4 do NFS.
+
+
+
+## Exports - Mudança da versão 3 para 4
+
+Nas versões 2 e 3 do NFS, cada exportação é tratada como uma exportação independente, é exportada separadamente independente do diretório (exportar o **/var/log/** significa que voce vai exportar apenas ele e nada mais; tudo o que tiver dentro dele também). Na versão 4, um servidor exporta um único *Pseudo-File_System* que incorpora todos os seus diretórios exportados.
+
+Em resumo, o Pseudo-File_System é um namespace do sistema de arquivos do servidor que remove qualquer coisa dentro do diretório raiz do Pseudo-File_System (sim, o Pseudo-File_System possui um diretório raiz) que não tenha sido prreviamente exportado.
+
+Por exemplo, vamos considerar alguns diretórios, os diretórios em negrito foram exportados (vou colocar apenas alguns diretórios):
+
+**/var/log/**
+/var/backups/
+/var/crash/
+**/var/cache/**
+/var/lib/
+/var/local/
+/var/lock/
+**/www/**
+
+
+
+No NFS versão 3, cada diretório exportado deve ser configurado separadamente no cliente, no nosso caso, teriamos que montar 3 diretórios.
+
+No NFS versão 4, entretanto, o pseudo-sistema de arquivos conecta as partes desconectadas da estrutura de diretório para criar uma única visualização para clientes NFS. Em vez de solicitar uma montagem separada para cada um de **/www/domain1**, **/www/domain2** e **/var/logs/httpd**, o cliente pode simplesmente montar todo o diretório pseudo-raiz do servidor e navegar na hierarquia (**mount /**).
+
+Os diretórios que não são exportados, **/www/domain3** e **/var/spool**, não aparecem durante a navegação. Além disso, os arquivos individuais contidos em **/**, **/var**, **/www** e **/var/logs** não são visíveis para o cliente porque a parte do pseudo-sistema de arquivos da hierarquia inclui apenas diretórios. Assim, a visão do cliente do sistema de arquivos exportado NFSv4 é:
+
+/
+├─ var
+│ └─ logs
+│   └─ httpd
+└─ www
+├─ domain1
+└─ domain2
+
+O servidor especifica a raiz dos sistemas de arquivos exportados em um arquivo de configuração conhecido como arquivo de exportação, geralmente mantido em **/etc**. Os clientes NFSv4 puros não podem examinar a lista de montagens em um servidor remoto. Em vez disso, eles simplesmente montam a pseudo-raiz e, em seguida, todas as exportações disponíveis tornam-se acessíveis por meio desse ponto de montagem.
+
+Essa é a história de acordo com as especificações RFC. Na prática, a situação é um tanto confusa. A implementação do Solaris está em conformidade com esta especificação. O Linux fez uma tentativa indiferente de oferecer suporte ao pseudo-sistema de arquivos no código NFSv4 anterior, mas posteriormente o revisou para suportar o esquema de forma mais completa; a versão de hoje parece respeitar a intenção da RFC. O FreeBSD não implementa o pseudo-sistema de arquivos conforme descrito pela RFC. A semântica de exportação do FreeBSD é essencialmente a mesma da versão 3; todos os subdiretórios em uma exportação estão disponíveis para os clientes.
+
+
+
+
+
+
 
 
 
@@ -65,6 +140,14 @@ $ sudo rpcinfo -p
 
 
 
+Exportar temporariamente 
+
+exportfs IP:folder -o options
+
+exportfs 192.168.0.0/24:/var/log -o ro,sync,no_subtree_check
+
+
+
 Antigo portmap, agora chama rpcbind (roda na porta 111), informa o cliente qual porta deve usar para se comunicar com o NFS ou MOUNT (conhecido como rpc.mountd).
 
 
@@ -89,68 +172,13 @@ Com a porta default do NFS, a comunicação é feita via NFSv4, e não existe a 
 
 
 
-Exportar temporariamente 
-
-exportfs IP:folder -o options
-
-exportfs 192.168.0.0/24:/var/log -o ro,sync,no_subtree_check
 
 
 
 
 
-Remote procedure calls
-Quando a Sun desenvolveu as primeiras versões do NFS na década de 1980, eles perceberam que muitos dos problemas relacionados à rede que precisavam ser resolvidos para o NFS se aplicavam a outros serviços baseados em rede também. Eles desenvolveram uma estrutura mais geral para chamadas de procedimento remoto conhecido como RPC ou SunRPC, e construíram o NFS em cima disso. Este trabalho abriu a porta para aplicativos de todos os tipos para executar procedimentos em sistemas remotos como se estivessem sendo executados localmente.
-
-O sistema RPC da Sun era primitivo e um tanto hackeado; sistemas muito melhores existem hoje para preencher essa necessidade. 1 No entanto, o NFS ainda depende de RPCs do tipo Sun para grande parte de sua funcionalidade. As operações que leem e gravam arquivos, montam sistemas de arquivos, acessam metadados de arquivos e verificam permissões de arquivos são implementadas como RPCs.
 
 
-
-Protocolos de transporte
-O NFS versão 2 originalmente usava UDP porque era o que tinha o melhor desempenho em LANs e computadores da década de 1980. Embora o NFS faça sua própria remontagem de sequência de pacotes e verificação de erros, UDP e NFS não possuem os algoritmos de controle de congestionamento que são essenciais para um bom desempenho em uma grande rede IP.
-
-Para remediar esses problemas (e outros), o NFS migrou para uma opção de UDP ou TCP na versão 3 e para o TCP apenas na versão 4. 2 A opção TCP foi explorada pela primeira vez como uma forma de ajudar o NFS a trabalhar por meio de roteadores e pela Internet . Com o tempo, a maioria dos motivos originais para preferir o UDP ao TCP evaporaram na luz quente de CPUs rápidas, memória barata e redes de alta velocidade.
-
-
-
-Estado
-Um cliente deve montar explicitamente um sistema de arquivos NFS antes de usá-lo, assim como um cliente deve montar um sistema de arquivos armazenado em um disco local. No entanto, as versões 2 e 3 do NFS não têm estado e o servidor não controla quais clientes montaram cada sistema de arquivos. Em vez disso, o servidor simplesmente revela um “cookie” secreto na conclusão de uma negociação de montagem bem-sucedida. O cookie identifica o diretório montado para o servidor NFS e, assim, abre uma maneira para o cliente acessar seu conteúdo. Os cookies persistem entre as reinicializações do servidor, portanto, uma falha não deixa o cliente em uma confusão irrecuperável. O cliente pode simplesmente esperar até que o servidor esteja disponível novamente e reenviar a solicitação.
-O NFSv4, por outro lado, é um protocolo com monitoração de estado: tanto o cliente quanto o servidor mantêm informações sobre arquivos abertos e bloqueios. Quando o servidor falha, os clientes auxiliam no processo de recuperação, enviando ao servidor suas informações de estado anterior à falha. Um servidor de retorno espera por um período de carência predefinido para que os clientes anteriores relatem suas informações de estado antes de permitir novas operações e bloqueios. O gerenciamento de cookies de V2 e V3 não existe mais no NFSv4.
-
-
-
-Filesystem exports
-Os servidores NFS mantêm uma lista de diretórios (chamados de “exportações” ou “compartilhamentos”) que disponibilizam aos clientes na rede. Por definição, todos os servidores exportam pelo menos um diretório. Os clientes podem então montar essas exportações e adicioná-las aos seus arquivos fstab.
-
-Em V2 e V3, cada exportação é tratada como uma entidade independente que é exportada separadamente. Na especificação V4, um servidor exporta um único pseudo-sistema de arquivos hierárquico que incorpora todos os seus diretórios exportados. Essencialmente, o pseudo-sistema de arquivos é o próprio namespace do sistema de arquivos do servidor esqueletizado para remover qualquer coisa que não seja exportada.
-
-Por exemplo, considere a seguinte lista de diretórios, com os diretórios a serem exportados em negrito:
-
-**/www/domain1**
-**/www/domain2**
-/www/domain3
-**/var/logs/httpd**
-/var/spool
-
-
-
-No NFS versão 3, cada diretório exportado deve ser configurado separadamente. Os sistemas cliente devem executar três solicitações de montagem diferentes para obter acesso a todas as exportações do servidor.
-
-No NFS versão 4, entretanto, o pseudo-sistema de arquivos conecta as partes desconectadas da estrutura de diretório para criar uma única visualização para clientes NFS. Em vez de solicitar uma montagem separada para cada um de **/www/domain1**, **/www/domain2** e **/var/logs/httpd**, o cliente pode simplesmente montar todo o diretório pseudo-raiz do servidor e navegar na hierarquia (**mount /**).
-
-Os diretórios que não são exportados, **/www/domain3** e **/var/spool**, não aparecem durante a navegação. Além disso, os arquivos individuais contidos em **/**, **/var**, **/www** e **/var/logs** não são visíveis para o cliente porque a parte do pseudo-sistema de arquivos da hierarquia inclui apenas diretórios. Assim, a visão do cliente do sistema de arquivos exportado NFSv4 é:
-
-/
-├─ var
-│ └─ logs
-│   └─ httpd
-└─ www
-├─ domain1
-└─ domain2
-
-O servidor especifica a raiz dos sistemas de arquivos exportados em um arquivo de configuração conhecido como arquivo de exportação, geralmente mantido em **/etc**. Os clientes NFSv4 puros não podem examinar a lista de montagens em um servidor remoto. Em vez disso, eles simplesmente montam a pseudo-raiz e, em seguida, todas as exportações disponíveis tornam-se acessíveis por meio desse ponto de montagem.
-
-Essa é a história de acordo com as especificações RFC. Na prática, a situação é um tanto confusa. A implementação do Solaris está em conformidade com esta especificação. O Linux fez uma tentativa indiferente de oferecer suporte ao pseudo-sistema de arquivos no código NFSv4 anterior, mas posteriormente o revisou para suportar o esquema de forma mais completa; a versão de hoje parece respeitar a intenção da RFC. O FreeBSD não implementa o pseudo-sistema de arquivos conforme descrito pela RFC. A semântica de exportação do FreeBSD é essencialmente a mesma da versão 3; todos os subdiretórios em uma exportação estão disponíveis para os clientes.
 
 
 
