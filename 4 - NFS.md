@@ -3,27 +3,50 @@
 [toc]
 
 [Introdução](#Introdução)
+
 [NFS sobre TCP e UDP](#NFS-sobre-TCP-e-UDP)
+
 [Remote Procedure Calls - RPC](#Remote-Procedure-Calls---RPC)
+
 [State - Mudança da versão](#State---Mudança-da-versão)
+
 [Exports - Mudança da versão](#Exports---Mudança-da-versão)
+
 [Segurança](#Segurança)
+
 [Desempenho na nova versão](#Desempenho-na-nova-versão)
+
 [Funcionamento do NFS](#Funcionamento-do-NFS)
-    [Comportamento notado](#Comportamento-notado)
+
+​    [Comportamento notado](#Comportamento-notado)
+
 [Arquivo exports](#Arquivo-exports)
+
 [Daemons relacionados ao NFS](#Daemons-relacionados-ao-NFS)
-    [RPCBIND](#RPCBIND)
-    [Mountd](#Mountd)
-    [NFSD](#NFSD)
+
+​    [RPCBIND](#RPCBIND)
+
+​    [Mountd](#Mountd)
+
+​    [NFSD](#NFSD)
+
 [Acesso root e nobody](#Acesso-root-e-nobody)
+
 [Resumo](#Resumo)
+
 [Comandos](#Comandos)
-    [exportfs](#exportfs)
-    [showmount](#showmount)
-    [rpcinfo](#rpcinfo)
-    [NFSSTAT](#NFSSTAT)
+
+​    [exportfs](#exportfs)
+
+​    [showmount](#showmount)
+
+​    [rpcinfo](#rpcinfo)
+
+​    [NFSSTAT](#NFSSTAT)
+
 [Melhorando o desempenho](#Melhorando-o-desempenho)
+
+
 
 
 
