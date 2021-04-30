@@ -2,7 +2,28 @@
 
 [toc]
 
-
+[Introdução](#Introdução)
+[NFS sobre TCP e UDP](#NFS-sobre-TCP-e-UDP)
+[Remote Procedure Calls - RPC](#Remote-Procedure-Calls---RPC)
+[State - Mudança da versão](#State---Mudança-da-versão)
+[Exports - Mudança da versão](#Exports---Mudança-da-versão)
+[Segurança](#Segurança)
+[Desempenho na nova versão](#Desempenho-na-nova-versão)
+[Funcionamento do NFS](#Funcionamento-do-NFS)
+    [Comportamento notado](#Comportamento-notado)
+[Arquivo exports](#Arquivo-exports)
+[Daemons relacionados ao NFS](#Daemons-relacionados-ao-NFS)
+    [RPCBIND](#RPCBIND)
+    [Mountd](#Mountd)
+    [NFSD](#NFSD)
+[Acesso root e nobody](#Acesso-root-e-nobody)
+[Resumo](#Resumo)
+[Comandos](#Comandos)
+    [exportfs](#exportfs)
+    [showmount](#showmount)
+    [rpcinfo](#rpcinfo)
+    [NFSSTAT](#NFSSTAT)
+[Melhorando o desempenho](#Melhorando-o-desempenho)
 
 
 
@@ -58,7 +79,7 @@ Alguns exemplos encontrados são:
 
 
 
-## State - Mudança da versão 3 para 4
+## State - Mudança da versão
 
 As versões 2 e 3 do NFS não trabalham com *estado*, assim o servidor não controla quais clientes montaram um determinado compartilhamento. Para contornar isso, o servidor NFS envia um cookie na conclusão de uma montagem bem-sucedida. Esse cookie identifica o diretório montado para o servidor NFS, dessa forma temos uma maneira para o cliente acessar seu conteúdo. Os cookies persistem entre as reinicializações do servidor, portanto, uma falha não deixa com que o cliente fique num estado irrecuperável. O cliente pode simplesmente esperar até que o servidor esteja disponível novamente e reenviar a solicitação.
 Já na versão 4 do NFS, o mesmo passou a ser um protocolo com monitoração de estado (tanto o cliente quanto o servidor mantêm informações sobre arquivos abertos e bloqueios). Se uma falha acontecer no servidor, os clientes vão auxiliar o servidor no processo de recuperação, enviando ao servidor suas informações de estado antes da falha ocorrer. Um servidor de retorno espera por um período predefinido para que os clientes anteriores relatem suas informações de estado antes de permitir novas operações e bloqueios. 
@@ -67,7 +88,7 @@ O uso de cookies não existe mais na versão 4 do NFS.
 
 
 
-## Exports - Mudança da versão 3 para 4
+## Exports - Mudança da versão
 
 Nas versões 2 e 3 do NFS, cada exportação é tratada como uma exportação independente, é exportada separadamente independente do diretório (exportar o **/var/log/** significa que voce vai exportar apenas ele e nada mais; tudo o que tiver dentro dele também). Na versão 4, um servidor exporta um único *Pseudo-File_System* que incorpora todos os seus diretórios exportados.
 
@@ -150,7 +171,7 @@ Para evitar todos esses problemas, a maioria dos servidores podem usar um métod
 
 
 
-## Desempenho na versão 4
+## Desempenho na nova versão 
 
 O NFS versão 4 foi projetado para ter seu desempenho melhorado em comparação com a versão 3:
 
@@ -332,7 +353,7 @@ Para desativar *root_swash*, defina a opção **no_root_squash**.
 
 
 
-## Opções gerais usadas no exports
+Opções gerais usadas no exports:
 
 | Opção                | Descrição                                                    |
 | -------------------- | ------------------------------------------------------------ |
