@@ -68,19 +68,19 @@ Vamos a uma rápida introdução dos pacotes:
 
 ## NFS sobre TCP e UDP
 
-Inicialmente o NFS foi desenvolvido para trabalhar em cima do UDP, porque ele tinha o melhor desempenho nas Redes e nos Servidores daquela época (estamos falando do NFS versão 2), o NFS por esse motivo (trabalhar com UDP) fazia remontagem da sequência dos pacotes e verificação de erros (já que o UDP não faz), mas ainda fica de fora algo muito importante, controle de congestionamento, é essencial para o bom desempenho de redes IP de grande porte (nem UDP nem NFS fazem isso). Na versão 3 do NFS, podemos escolher entre TCP ou UDP, e na versão 4 do NFS, temos somente o uso do TCP.
+Inicialmente o NFS foi desenvolvido para trabalhar em cima do UDP, porque ele tinha o melhor desempenho nas Redes e nos Servidores daquela época (estamos falando do NFS versão 2), o NFS por esse motivo (trabalhar com UDP) fazia remontagem da sequência dos pacotes e verificação de erros (já que o UDP não faz), mas ainda fica de fora algo muito importante, controle de congestionamento, ele é essencial para o bom desempenho de redes IP de grande porte (nem UDP nem NFS fazem isso). Na versão 3 do NFS, podemos escolher entre TCP ou UDP, e na versão 4 do NFS, temos somente o uso do TCP.
 
 O NFS versão 4 requer TCP como protocolo padrão de transporte e se comunica na porta 2049. Já as versões anteriores podem ter sua porta modificada, assim como o protocolo de transporte. 
 
-Por padrão, o NFS sempre vai preferir o TCP, mas para versão 2 e 3, onde temos o uso do rpcbind (antigo *portmap*), a comunicação com o *rpcbind* e com o *mountd* é feita infelizmente usando UDP.
+Por padrão, o NFS sempre vai preferir o TCP, mas para versão 2 e 3, onde temos o uso do rpcbind (antigo *portmap*), a comunicação com o *rpcbind* e com o *mountd* é feita infelizmente usando UDP, caso você não faça algumas escolhas, vamos falar disso mais para frente.
 
-Rpcbind é realizado na porta 111 e mountd uma porta aleatória por padrão mas você pode mudar ela, vou descrever isso em mais detalhes no decorrer do documento.
+Rpcbind escuta na porta 111 e mountd fica escutando numa porta aleatória por padrão, mas você pode mudar ela, vou descrever isso em mais detalhes no decorrer do documento.
 
 
 
 ## Remote Procedure Calls - RPC
 
-Durante o desenvolvimento do NFS, a equipe de desenvolvimento percebeu que muitos dos problemas relacionados à rede no projeto, que precisavam ser resolvidos para que o NFS funcionasse se aplicavam também à outros serviços baseados em rede. Com isso em mente, eles desenvolveram um método para *chamadas de procedimento remoto* conhecido como RPC. Dessa forma eles resolveriam o problema do NFS e de muitos outros serviços baseados em rede, o RPC abriu as portas para que aplicativos de todos os tipos pudessem executar procedimentos em sistemas remotos como se estivessem sendo executados localmente.
+Durante o desenvolvimento do NFS, a equipe de desenvolvimento percebeu que muitos dos problemas relacionados à rede, precisavam ser resolvidos para que o NFS funcionasse, esses problemas também se aplicavam à outros serviços baseados em rede. Com isso em mente, eles desenvolveram um método para *chamadas de procedimento remoto* conhecido como RPC. Dessa forma eles resolveriam o problema do NFS e de muitos outros serviços baseados em rede, o RPC abriu as portas para que aplicativos de todos os tipos pudessem executar procedimentos em sistemas remotos como se estivessem sendo executados localmente.
 
 As operações que leem/gravam arquivos, montam sistemas de arquivos, acessam metadados de arquivos e verificam permissões de arquivos são implementadas como RPCs.
 
