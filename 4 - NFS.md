@@ -44,6 +44,8 @@
 
 ​    [NFSSTAT](#NFSSTAT)
 
+[TCP Wrappers](#TCP-Wrappers)
+
 [Melhorando o desempenho](#Melhorando-o-desempenho)
 
 
@@ -278,13 +280,13 @@ Na versão 4 as exportações são apresentadas aos clientes como uma única hie
 
 Existem algumas observações que eu pude notar com o uso do NFS, ainda mais quando eu tive a incrível ideia de forçar ele a usar somente a versão 4, isso ainda vai ser falado mais para frente, mas quis dedicar esse espaço para essas observações.
 
-Por padrão tanto cliente como servidor vão usar o NFS versão 4, desde que algumas coisas não aconteçam.
+Por padrão tanto cliente como servidor vão usar o NFS versão 4, desde que algumas coisas **não** aconteçam.
 
 Se você mudar a porta do NFS (padrão 2049), o cliente vai tentar comunicação nessa porta e então vai falhar, com isso ele faz um GETPORT no rpcbind diretamente, aqui ja vemos que começou a usar NFS versão 3.
 
 Eu tentei inclusive fazer um redirecionamento de porta, para tentar enganar o sistema, mas por algum motivo ele sabe e passar a usar o rpcbind, com isso, ele acaba usando NFS versão 3 (talvez eu não tenha feito direito).
 
-Se voce desativar rpcbind e nfs-mountd, o NFS não vai funcioanar, independente da versão, muitos publicadores de conteúdo dizem que você deve desativar versões anteriores do NFS se não for usar, e ficar preferencialmente com NFS versão 4, mas o que eu pude notar é que ele usa internamente RPC ainda, mesmo que isso não fique visível para nós, digo isso porque após desativar rpcbind e nfs-mountd e forçar o NFS a usar a versão 4, ele funcionará.
+Se voce desativar rpcbind e nfs-mountd, o NFS não vai funcionar, independente da versão, muitos publicadores de conteúdo dizem que você deve desativar versões anteriores do NFS se não for usar e até o rpcbind, e ficar preferencialmente com NFS versão 4, mas o que eu pude notar é que ele usa internamente RPC ainda, mesmo que isso não fique visível para nós, digo isso porque após desativar *rpcbind* e *nfs-mountd* e forçar o NFS a usar a versão 4, ele não funcionará.
 
 
 
@@ -303,15 +305,15 @@ Ao editar **/etc/exports**, execute `exportfs -ra` para ativar suas mudanças no
 | service rpcbind reload | FreeBSD/Linux | Reinicia o daemon do rpcbind.                                |
 | service nfsd reload    | FreeBSD/Linux | Reinicia o daemon do rpcbind e faz a re-leitura do arquivo de exportação. |
 
-Em ambientes Linux com Systemd é recomendado o uso  `systemctl restart serviço`.
+Em ambientes Linux com Systemd é recomendado o uso  `systemctl restart <serviço>`.
 
 O arquivo de exportação consiste em uma lista de diretórios exportados seguido pelos hosts que têm permissão para acessá-los e opções associadas ao ponto de montagem/funcionamento do NFS. Um espaço em branco deve separar o diretório a ser exportado da lista de clientes, podemos ter mais de um cliente liberado para acesso, cada cliente é seguido imediatamente por uma lista de opções separadas por vírgulas entre parênteses.
 
-Por exemplo, estou exportando o `/home`, para todos que estão na rede `192.168.122.0/24`:
+Por exemplo, estou exportando o `/home`, para todos que estão na rede `192.168.122.0/24`, a linha dentro de **/etc/exports** ficará assim:
 
 `/home 192.168.122.0/24(ro)`
 
-Nesse caso, eles só terão acesso a leitura `ro (Read-Only)`. Podemos usar o asterisco `*` onde deveriamos colocar o IP para especificar qualquer destino: `/home *(ro)`.
+Nesse caso, eles só terão acesso a leitura `ro (Read-Only)`. Podemos usar o asterisco `*` onde deveriamos colocar o IP para especificar qualquer destino, ficando assim: `/home *(ro)`.
 
 
 
@@ -324,17 +326,17 @@ Vou apresentar uma breve descrição sobre os daemons usados na comunicação do
 ### RPCBIND
 
 O funcionamento desse daemon foi explicado em **Funcionamento do NFS**, mas numa rápida introdução.
-Antigamente era chamado de `portmap`, ainda hoje é possível ver logs e registros usando esse nome, como o Wireshark, roda na porta 111, ele server para informar ao cliente NFS a porta que o protocolo /daemon do NFS/mountd estão usando, dessa forma, o cliente sabe em qual porta se conectar.
+Antigamente era chamado de `portmap`, ainda hoje é possível ver logs e registros usando esse nome, como no Wireshark (ainda usa o nome portmap). Escuta requisições na porta 111, sua função é informar ao cliente NFS a porta que o protocolo/daemon do NFS/mountd estão usando, dessa forma, o cliente sabe em qual porta se conectar.
 
 Seu arquivo de configuração fica em `/etc/default/rpcbind`, mas pode ser usado um outro arquivo, localizado em `/etc/rppcbind.conf` (normalmente esse segundo arquivo não existe, tendo somente o primeiro arquivo).
 
-O script que inicia o *rpcbind*, que é executado pelo seu daemon fica em `/sbin/rpcbind`. Não existem muitas opções flexíveis para trabalharmos, mas dê uma olhada você mesmo, pode achar algo interessante, rode `man rpcbind`.
+O script que inicia o *rpcbind*, que é executado pelo seu daemon fica em `/sbin/rpcbind`. Não existem muitas opções flexíveis para trabalharmos, mas dê uma olhada você mesmo, pode achar algo interessante, execute o comando `man rpcbind`.
 
 
 
 ### Mountd
 
-No Linux o daemon do *mountd* chama-se `nfs-mountd.service`, *mountd* não possui um arquivo de configuração, ele usa opções passadas como argumento ao script, essas opções podem ser colocadas num arquivo que foi criado com esse propósito. Ao reiniciar o daemon do *nfsd*, as configurações do *mountd* também são carregadas, isso porque no daemon do *nfsd* está configurado para ter esse comportamento, por isso, muitas vezes só precisamos reiniciar o *nfsd* (mountd acabará sendo reiniciado também).
+No Linux o daemon do *mountd* chama-se `nfs-mountd.service`, *mountd* não possui um arquivo de configuração, ele usa opções passadas como argumento ao script, essas opções podem ser colocadas num arquivo, assim sempre teremos as mesmas opções sendo fornecidas ao *mountd*. Ao reiniciar o daemon do *nfsd*, as configurações do *mountd* também são recarregadas, isso porque no daemon do *nfsd* está configurado para ter esse comportamento (reiniciar o serviço do mountd junto ao nfsd), por isso, muitas vezes só precisamos reiniciar o *nfsd* (mountd acabará sendo reiniciado também).
 
 Seu script fica em `/usr/sbin/rpc.mountd`. Como mountd roda em portas aleatórias, isso cria uma dificuldade para gerenciar todas as portas no firewall, por isso vamos ver como alterar/fixar sempre a mesma porta.
 Acesse o arquivo `/etc/default/nfs-kernel-server`, nesse arquivo vai ter uma variável usada pelo daemon do *mountd*, chamada `RPCMOUNTDOPTS`, para fixar uma porta use a opção `--port <porta>`, no final dessa seção, vou mostrar um arquivo básico padrão que você deve ter para facilitar a implementação com firewall.
@@ -534,7 +536,13 @@ root@NFServer:~# rpcinfo -p
 
 ### NFSSTAT
 
-Mostra estatística do NFS, é um comando bem complexo de se entender, possuí muita informações em sua saída, o recomendado é que se entenda sobre cada opção exibida (não vou focar nisso aqui).
+Mostra estatística do NFS, é um comando bem complexo de se entender, possuí muitas informações em sua saída (não vou focar nisso aqui).
+
+
+
+## TCP Wrappers
+
+Com o uso do TCP, o NFS passou a ter uma camada de segurança a mais com o TCP Wrappers. O TCP Wrappers é uma ferramenta que adiciona uma camada a mais de proteção no acesso a serviços de rede, ele é independente do NFS, mas só se integra ao NFS com uso de TCP, com o uso de UDP a aplicação dele não surte efeito. 
 
 
 
