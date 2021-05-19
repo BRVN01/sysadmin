@@ -1,0 +1,132 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />	<title>
+		Login	</title>
+	<link href="/favicon.ico" type="image/x-icon" rel="icon"/><link href="/favicon.ico" type="image/x-icon" rel="shortcut icon"/>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="Write an awesome description for your new site here. You can edit this line in _config.yml. It will appear in your document head meta (for Google search results) and in your feed.xml site description.
+	">
+
+	<link rel="stylesheet" href="/assets/css/theme.css?v=1.1">
+	<link rel="stylesheet" href="/assets/css/jquery-ui.css">
+    <link rel="stylesheet" href="/assets/sweetalert2/sweetalert2.min.css">
+	<link href="/assets/lightbox2/dist/css/lightbox.css" rel="stylesheet" />
+	
+	<link rel="canonical" href="https://comunic.nic.br/">
+	<link rel="alternate" type="application/rss+xml" title="Your awesome title" href="http://yourdomain.com/feed.xml" />
+
+	<!-- Matomo -->
+<script type="text/javascript">
+  var _paq = window._paq || [];
+  /* tracker methods like "setCustomDimension" should be called before "trackPageView" */
+  _paq.push(['trackPageView']);
+  _paq.push(['enableLinkTracking']);
+  (function() {
+    var u="https://web-analytics.nic.br/";
+    _paq.push(['setTrackerUrl', u+'matomo.php']);
+    _paq.push(['setSiteId', '29']);
+    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+    g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
+  })();
+</script>
+<!-- End Matomo Code -->
+
+</head>
+
+
+<body>
+	<main>
+		<header>
+			<div class="topbar">
+				<div class="container">
+					<div class="form-search row">
+						<div class="col-sm-4 col-xs-4">
+							<a href="/"><img src="/assets/img/logo-comunic.png" alt="Comunic" class="img-responsive"></a>
+						</div>
+						
+						<div class="col-sm-6 col-xs-4">
+													</div> 
+						
+						<div class="col-sm-2 col-xs-4">
+							<div class="user-topbar-options pull-right">
+															<a href="/usuarios/login" class="login"><i class="fa fa-sign-in"></i> <strong>Login</strong></a>
+											</div>
+				</div>
+
+			</div>
+		</div>
+	</div>
+</header>
+
+<div class="background-pattern">
+	<div class="container">
+		<div class="row">
+			
+		</div>
+</div>
+</div>
+<div class="container">
+	<div class="row">
+		<div class="col-xs-12 container-home">
+						<div class="users form">
+	<div class="alert alert-info">
+	<a class="close" data-dismiss="alert" href="#">×</a>
+	Para acessar o ComunNIC.br efetue o login.</div>	<form action="/usuarios/login" class="card signin-card form-horizontal" id="UsuarioLoginForm" method="post" accept-charset="utf-8"><div style="display:none;"><input type="hidden" name="_method" value="POST"/></div>			<fieldset class="fieldset-login">
+				<legend class="center"> Acesso ao Sistema </legend>
+				<div class="form-group form-group-lg required">
+					<div class="col col-md-12 required">
+						<div class="input-group">
+							<div class="input-group-addon"><i class="fa fa-user"></i></div>
+							<input id="formGroupInputLarge" class="form-control input-group" type="text" required="required" maxlength="255" input-group-addon="input-group-addon" for="formGroupInputLarge" placeholder="Insira seu email do NIC.br" name="data[Usuario][username]">
+						</div>
+					</div>
+				</div>
+				<div class="form-group form-group-lg required">
+					<div class="col col-md-12 required">
+						<div class="input-group">
+							<div class="input-group-addon"><i class="fa fa-unlock-alt"></i></div>
+							<input id="UserPassword" class="form-control input-group" type="password" required="required" placeholder="Insira sua senha" name="data[Usuario][password]">
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-12 col-md-12 col-sm-12">
+					<label class=" checkbox-users" for="UsuarioManter">
+						<input type="checkbox" id="UsuarioManter" value="1" name="data[Usuario][manter]"> Conectado por 24h
+					</label>
+				</div>
+				<br><br>
+				<div class="col col-md-12 text-center">
+					<div class="form-group">
+						<button class="btn btn-md btn-success btn-block text-center" value="Entrar" type="submit">
+							<strong>
+								ENTRAR
+								<span class="fa fa-sign-in"></span>
+							</strong>
+						</button>
+					</div>
+				</div>
+			</fieldset>
+			</form>		</div>
+		<div class="text-center">
+			<a href="/usuarios/esqueci">Esqueci a senha</a>
+		</div>		</div>
+	</div>
+</div>
+
+</main>
+
+
+<script type="text/javascript" src="/assets/sweetalert2/sweetalert2.all.min.js"></script>
+<script>
+$('[data-toggle="tooltip"]').tooltip();
+</script>
+
+</body>
+
+<script src="/assets/lightbox2/dist/js/lightbox.js"></script>
+
+</html>
