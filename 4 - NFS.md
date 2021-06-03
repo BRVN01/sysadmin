@@ -548,3 +548,20 @@ Com o uso do TCP, o NFS passou a ter uma camada de segurança a mais com o TCP W
 
 ## Melhorando o desempenho
 
+
+
+validar rede
+
+```
+$ nfsstat -o net
+Server packet stats:
+packets    udp        tcp        tcpconn
+0          0          0          0       
+
+Client packet stats:
+packets    udp        tcp        tcpconn
+0          0          0          0       
+
+A opção -o net mostrará o número de pacotes perdidos em relação ao número total de transações. Em transações UDP, a estatística mais importante é o número de retransmissões, devido a pacotes descartados, estouros de buffer de soquete, congestionamento geral do servidor, tempos limite, etc. 
+```
+

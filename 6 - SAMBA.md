@@ -61,13 +61,13 @@ Para instalar o Samba, primeiro temos que baixar o código fonte para poder comp
 
 ```bash
 # Baixe a ultima versão do Samba:
-wget https://download.samba.org/pub/samba/stable/samba-4.14.3.tar.gz
+wget https://download.samba.org/pub/samba/stable/samba-4.14.4.tar.gz
 
 # Descompate o arquivo:
-tar -zxvf samba-4.14.3.tar.gz
+tar -zxvf samba-4.14.4.tar.gz
 
 # Entre na pasta do Samba4:
-cd samba-4.14.3
+cd samba-4.14.4
 
 # O script de configuração (chamado configure), vai criar um arquivo chamado Makefile que é usado pelo comando make.
 
@@ -101,5 +101,35 @@ $ sudo make install
 
 # Final da instalação:
 'install' finished successfully (1m59.085s)
+
+
+# Agora vamos provisionar o Samba:
+/etc/samba/bin/samba-tool domain provision --realm=sysnetbr.eng.br --domain=sysnetbr --adminpass='p@ssw0rd' --server-role=dc --use-rfc2307 --dns-backend=SAMBA_INTERNAL
+
+# server-role=dc - Nosso samba vai ser um controlador de domínio.
+# --use-rfc2307 - Permite as extensões NIS.
+# --dns-backend=SAMBA_INTERNAL - Qual backend para DNS o samba vai usar. O primeiro DC num AD deve ser instalado usando backend de DNS.
+# realm=... - Nosso domínio completo.
+# domain=... = Apenas a porção do domínio.
+```
+
+
+
+Alterar DNS
+
+```bash
+# /etc/hosts
+127.0.0.1 localhost
+192.168.122.93 samba.sysnetbr.eng.br samba
+
+# The following lines are desirable for IPv6 capable hosts
+::1     ip6-localhost ip6-loopback
+fe00::0 ip6-localnet
+ff00::0 ip6-mcastprefix
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+
+
+# Setar ip fixo, no caso, o ip do samba é .93
 ```
 

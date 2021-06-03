@@ -853,4 +853,506 @@ root@SaltMaster:~\# salt 'slave2' service.get_disabled
 # Funciona como o systemd no quisito (start, stop, reload, restart).
 ```
 
-Pag 42
+
+
+## Consultando o estado do Minion
+
+Existem alguns módulos/funções que podemos consultar o estados dos minions, como: uso de disco, load average, consumo de memória, e uptime.
+
+```bash
+# Vamos consultar o uso de disco:
+root@SaltMaster:~\# salt 'slave2' status.diskusage
+slave2:
+    ----------
+    /:
+        ----------
+        available:
+            7869648896
+        total:
+            14725160960
+    /boot:
+        ----------
+        available:
+            843243520
+        total:
+            1023303680
+    /dev:
+        ----------
+        available:
+            996642816
+        total:
+            996642816
+# Saída total ocultada devido ser muito grande.
+
+# Vamos consultar o load average:
+root@SaltMaster:~# salt 'slave2' status.loadavg
+slave2:
+    ----------
+    1-min:
+        0.0
+    15-min:
+        0.0
+    5-min:
+        0.0
+
+# Vamos consultar o consusmo de memória ram:
+root@SaltMaster:~\# salt 'slave2' status.meminfo
+slave2:
+    ----------
+    Active:
+        ----------
+        unit:
+            kB
+        value:
+            276072
+    Active(anon):
+        ----------
+        unit:
+            kB
+        value:
+            136952
+    Active(file):
+        ----------
+        unit:
+            kB
+        value:
+            139120
+# Saída total ocultada devido ser muito grande.
+
+# Vamos consultar o uptime:
+root@SaltMaster:~\# salt 'slave2' status.uptime
+slave2:
+    ----------
+    days:
+        0
+    seconds:
+        1463
+    since_iso:
+        2021-05-07T14:06:52.662925
+    since_t:
+        1620396412
+    time:
+        0:24
+    users:
+        1
+```
+
+
+
+## Salt State
+
+Apesar do que vimos ter um grande poder no gerenciamento de outras máquinas, em grande escala é pouco usual, na maioria das vezes não vamos apenas fazer uma ou outra coisa, vamos fazer mudanças significativas (escrever scripts em bash com centenas de linhas de comandos do SaltStack é feio, não faça isso).
+
+A execução de comandos diretos, sem nenhum template estruturado, normalmente é chamada **ad-hoc** (engloba tudo que vimos até agora), assim como no Ansible, trabalhar com centenas de modificações e tarefas repetitivas usando comandos ad-hoc não é, e nunca vai ser uma tarefa fácil, para resolver isso, SaltStack tras consigo um gerenciador de configuração que nos permitir criar templates de configuração que são reutilizáveis.
+
+Dessa forma, podemos criar templates estruturados para configurar minions, e o melhor de tudo, por ser estruturado, ele nao se restringe a um host em específico.
+
+
+
+### Arquivo de template
+
+Para criarmos nossos templates, vamos trabalhar com arquivos comuns (geralmente para transfêrencia, do master para o minion) e os arquivos de templates em sí, chamado de arquivos **sls** (**S**a**L**t **S**tate file).
+
+Esses arquivos por padrão devem ficar em `/srv/salt/`, mas isso pode ser modificado no arquivo de configuração `/etc/salt/master`.
+
+Todo template deve ter a chamada de topo para execução padronizada, isso quer dizer que um arquivo vai chamar na ordem configurada outros templates, para isso o template principal deve se chamar **top.sls**, e os *sls* subsequentes, devem se chamar **init.sls**.
+
+Ainda é possível definir templates que fogem dessem padrão, mas geralmente, eles são importados por outros templates que seguem a cadeia, ou são chamados solitáriamente.
+
+```bash
+# Ordem de execução:
+/srv/salt/
+├── locales
+│   └── init.sls
+└── top.sls
+
+# 1° será executado o arquivo top.sls, depois ele vai executar o que estiver configurado nele.
+
+$ cat top.sls
+base:
+  '*':
+    - locales
+
+# base = Está declarando um ambiente base.
+# '*' = Aqui são os minions, isso significar que vai rodar em todos os minions.
+# - locales = Indica outro arquivo sls (no caso init.sls) que deva ser executado.
+
+# É possível declarar vários minions no embiente base:
+
+base:
+  '*':
+    - locales
+  'web*':
+    - pkg_add
+```
+
+O arquivo de template utiliza o formato YAML, fornecendo chaves/valores em suas configurações, dessa forma, conseguimos manter o template estrutura e super fácil de interpretar.
+
+O link [salt.modules.state](https://docs.saltproject.io/en/latest/ref/modules/all/salt.modules.state.html) possui todos os módulos do SaltStack que podemos usar para criar nossos templates.
+
+
+
+### Criando um template para instalação de programas
+
+Para demonstrar o que foi dito até agora, vamos criar um template para instalação de alguns problemas.
+
+> Antes de continuarmos, certifique-se de os diretórios '/srv/salt/' existam, caso contrrário, crie eles ou altere a localização no arquivo master do Salt.
+
+Vamos criar o arquivo de topo.
+
+```bash
+root@SaltMaster:~\# vim /srv/salt/top.sls
+
+# Coloque o texto abaixo no seu arquivo:
+base:
+  '*':
+    - pkg_add
+```
+
+Com o arquivo principal do template pronto, precisamos criar o arquivo onde vamos colocar os pacotes a serem instalados.
+
+Crie o diretório `pkg_add`.
+
+```bash
+root@SaltMaster:~# mkdir /srv/salt/pkg_add
+```
+
+Agora crie e edite o arquivo dentro de *pkg_add*, o nome do arquivo deve ser **init.sls**.
+
+```bash
+root@SaltMaster:~\# vim /srv/salt/pkg_add/init.sls
+
+# Cole o texto abaixo no seu arquivo:
+Pacotes a serem instalados:
+  pkg.installed:
+    - pkgs:
+      - emacs
+      - vim
+      - apache2
+```
+
+> Antes de executarmos o nosso template, é sempre bom fazermos um teste para ter certeza que nada irá dar errado.
+>
+> Para isso execute salt '*' state.apply test=True
+
+Para aplicar o template sem especificar o que acabamos de criar, podemos usar o módulo **state**, ele é usado para trabalharmos com os templates, e a função **apply**, se essa função for executada sem argumentos, ela irá passar o que está no arquivo de topo como argumento, executando tudo que tivermos lá.
+
+Vamos executar nosso template:
+
+```bash
+root@SaltMaster:~\# salt '*' state.apply
+slave2:
+----------
+          ID: Pacotes a serem instalados
+    Function: pkg.installed
+      Result: True
+     Comment: The following packages were installed/updated: emacs, apache2
+              The following packages were already installed: vim
+     Started: 20:18:30.577006
+    Duration: 75723.434 ms
+     Changes:   
+              ----------
+              adwaita-icon-theme:
+                  ----------
+                  new:
+                      3.36.1-2ubuntu0.20.04.2
+                  old:
+              apache2:
+                  ----------
+                  new:
+                      2.4.41-4ubuntu3.1
+                  old:
+              apache2-bin:
+                  ----------
+                  new:
+                      2.4.41-4ubuntu3.1
+                  old:
+              apache2-data:
+                  ----------
+                  new:
+                      2.4.41-4ubuntu3.1
+                  old:
+              apache2-utils:
+                  ----------
+                  new:
+                      2.4.41-4ubuntu3.1
+                  old:
+
+				 ____________________
+                |                    |
+				|	Trecho Omitido ! |
+				|____________________|
+
+Summary for slave2
+------------
+Succeeded: 1 (changed=1)
+Failed:    0
+------------
+Total states run:     1
+Total run time:  75.723 s
+```
+
+
+
+Caso você não tenha um arquivo *top.sls*, pode ver a mensagem abaixo, verificando que ele é procurado:
+
+```
+No Top file or master_tops data matches found. Please see master log for details.
+```
+
+
+
+### A opção require
+
+Muito usado para criar uma dependência, vamos ver um exemplo abaixo:
+
+```bash
+/root/.vimrc:
+  file.managed:
+    - source: salt://vim/files/vimrc
+    - user: root
+    - group: root
+    - mode: 644
+    - require:
+          - install_vim
+
+install_vim:
+  pkg.installed:
+    - name: vim
+
+# '- install_vim' e '- pkg: install_vim' sao iguais, você pode passar o módulo e pode não passar.
+```
+
+> '- install_vim' e '- pkg: install_vim' sao iguais, você pode passar o módulo e pode não passar, veja a descrição da documentação oficial:
+>
+> In version 2016.3.0, the state module name was made optional. If the state module is omitted, all states matching the ID will be required, regardless of which module they are using.
+>
+> Veja a informação acima [aqui](https://docs.saltproject.io/en/latest/ref/states/requisites.html#omitting-state-module-in-requisites).
+
+Nesse caso, só vamos fazer a transferência do arquivo de configuração do vim, somente se o pacote do vim estiver instalado, nesse caso, ele vai executar *install_vim* antes de executar */root/.vimrc*. 
+
+Se a instalação falhar, ele não vai transferir o arquivo.
+
+Vale ressaltar que os nomes mencionados acima (install_vim) e o ID, mas pode ser usado como argumento, no caso da transferência do arquivo, o ID também e o caminho para onde o arquivo deva ser enviado, caso o ID nao corresponda a um atributo da função, muita vezes usamos o atributo **- name:** no lugar.
+
+
+
+### A opção watch
+
+O *watch* também é usado para criar uma dependência, se comporta de uma maneira muito semelhante ao *require*. O comportamento básico é o mesmo, um *state* só é executado se a dependência que criamos for executada com sucesso. No entanto, o *watch* só vai ser executado se houver uma alteração de estado.
+
+```
+ntpd:
+  service.running:
+    - watch:
+      - file: /etc/ntp.conf
+  file.managed:
+    - name: /etc/ntp.conf
+    - source: salt://ntp/files/ntp.conf
+```
+
+Analisemos o código acima, caso tenha alteração de estado no arquivo `/etc/ntp.conf`, o módulo **file** do ID **ntpd** será executado, nesse caso, será enviado um arquivo para o minion. Se não tiver alteração, nada será executado.
+
+> Alguns módulos contém *mod_watch*, ele sempre deve estar presente no *watch*, caso não esteja, o módulo *watch* terá o mesmo comportamento do módulo *require*.
+
+Segue algumas funções do módulo state:
+
+```bash
+# Verificando o módulo de topo:
+root@SaltMaster:/srv/salt\# salt '*' state.show_top
+slave2:
+    ----------
+    base:
+        - locales
+slave3:
+    ----------
+    base:
+        - locales
+
+# Mostrando apenas os states:
+root@SaltMaster:/srv/salt\# salt '*' state.show_states
+slave2:
+    - locales
+slave3:
+    - locales
+
+# Mostrando de forma detalhada um state:
+root@SaltMaster:/srv/salt# salt '*' state.show_sls locales
+slave2:
+    ----------
+    default_locale:
+        ----------
+        __env__:
+            base
+        __sls__:
+            locales
+        locale:
+            |_
+              ----------
+              name:
+                  en_US.UTF-8
+            - system
+            |_
+              ----------
+              order:
+                  10001
+    pt_locale:
+        ----------
+        __env__:
+            base
+        __sls__:
+            locales
+        locale:
+            |_
+              ----------
+              name:
+                  pt_BR.UTF-8
+            - present
+            |_
+              ----------
+              order:
+                  10000
+```
+
+
+
+## States com Jinja2 e Pillar
+
+Vamos ver como integrar o state do Salt juntamente com o Pillar e como utilizar uma das nossas maiores ferramentas, o Jinja2.
+
+
+
+### Jinja2
+
+Jinja2 é uma linguagem de template para Python. A template fornece um método para gerar conteúdo dinamicamente. Existem dois tipos principais de sintaxe Jinja2 usados no Salt. A primeira é a variável, que usa chaves duplas e que é mostrada no código a abaixo:
+
+```
+{{ foo }}
+{{ foo.bar }}
+{{ foo['bar'] }}
+{{ get_data() }}
+```
+
+Para esses exemplos, o conteúdo da variável referenciada ou os resultados da chamada de função são colocados no documento no local do bloco Jinja2. 
+
+Jinja2 também tem acesso a instruções de controle básicas. Os blocos de instrução de controle usam uma chave e um sinal de porcentagem, que é representado no código a seguir:
+
+`{% %}`
+
+Aqui está um exemplo de um bloco condicional:
+
+```
+{% if myvar == 'foo' %}
+somecontent
+{% elif myvar == 'bar' %}
+othercontent
+{% else %}
+morecontent
+{% endif %}
+```
+
+Aqui está um exemplo de loop:
+
+```
+{% for user in ['larry', 'moe', 'curly'] %}
+É o ususário {{ user }}!
+Olá {{ user }}!
+{% endfor %}
+```
+
+Também podemos definir variáveis para uso posterior no modelo, como segue:
+
+```
+{% set myvar = 'foo'%}
+```
+
+Com essas noções básicas de sintaxe, estamos prontos para usar Jinja2 no Salt!
+
+
+
+### Aplicando Jinja2 no state
+
+Vamos ver um exemplo de aplicação do Jinja2, vamos pegar como exemplo o web server Apache, em ambientes Redhat ele se chama `httpd`, já em ambientes Debian ele se chama `apache2`, então vamos montar um `sls` para fazer a instalação do Apache independentemente do sistema ser Debian ou Redhat.
+
+```bash
+# Normalmente a instalação seria assim (em ambientes Debian):
+install_apache:
+  pkg.installed:
+    - name: apache2
+
+# Agora vamos deixar mais inteligente:
+install_apache:
+  pkg.installed:
+{% if grains['os_family'] == 'Debian' %}
+    - name: apache2
+{% elif grains['os_family'] == 'RedHat' %}
+    - name: httpd
+{% endif %}
+```
+
+> Lembre-se que com o Grains podemos obter informações do Sistema do minion. O 'os_family' nos informa a familia da distro do minion.
+>
+
+```bash
+root@SaltMaster:/srv/salt/vim\# salt '*' grains.item os_family
+slave3:
+    ----------
+    os_family:
+        Debian
+slave2:
+    ----------
+    os_family:
+        Debian
+```
+
+
+
+### Pillar
+
+Até agora, apenas definimos o estado de nossa infraestrutura usando arquivos de estado. No entanto, não há mecanismo nos arquivos de estado para controle de acesso por minion. Qualquer arquivo ou dado que você colocar em `/srv/salt` estará imediatamente disponível para minions aprovados.
+
+Portanto, precisamos de um sistema para fornecer dados confidenciais aos minions. Esse sistema do Salt é chamado de pillar.
+
+Muito parecido com os Grains, o pillar é apenas uma loja de valor-chave em Salt. No entanto, cada minion obtém seu próprio conjunto de dados de pillar, criptografados por minion, o que o torna adequado para dados confidenciais.
+
+Nossos arquivos pillar são armazenados em um diretório separado de nossos arquivos de estado. Por padrão, este diretório é `/srv/pillar`, mas podemos mudar essa localização no arquivo de configuração.
+
+Vamos criar este diretório:
+```
+# sudo mkdir /srv/pillar
+# cd /srv/pillar
+```
+
+
+
+#### Arquivo de topo
+
+O pillar possui a mesma estrutura de dados que o servidor de arquivo do Salt, sendo assim, teremos arquivos de topo (*top.sls*) e os iniciadores de cada módulo (*init.sls*).
+
+```bash
+# Arquivo top.sls do Pillar:
+
+base:
+  '*':
+    - pkg_add
+  'os_family:debian':
+    - match: grain
+    - pkg_del
+
+# Aqui mesclei algumas coisas interessantes, o trecho abaixo representa um funcionamento normal, nada fora do comum.
+base:
+  '*':
+    - pkg_add
+
+# Porém, o que vem agora foge um pouco do uso básico do state:
+  'os_family:debian':
+    - match: grain
+    - pkg_del
+
+# 'os_family:debian': = Informa que o ambiente não deve englobar todos os minions, mas apenas os minions que possuem a distribuição Debian.
+
+# - match: grain = Essa linha é obrigatória logo após a mudança de ambiente, ela que informa que estamos usando o Grain para obter os dados da distribuição, se não colocarmos isso, basicamente estaremos nos referindo a todos os minions aceitos, por causa do Globbing ('*').
+
+# - pkg_del = É o módulo que todos as máquina Debian vão usar.
+```
+

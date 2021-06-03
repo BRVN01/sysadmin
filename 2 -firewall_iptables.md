@@ -221,7 +221,7 @@ Segue abaixo uma imagem que descreve o fluxo de dados de um pacote assim que rec
 | -L                   | (**list**) Lista as regras                                   |
 | -t (table)           | (**Table**) Define 1 das 4 tabelas                           |
 | -P (Chain)           | (**Policy**) Define a política da Chain                      |
-| -S                   | (**list-rules**) Lista a política de todas as Chains ou uma em específico |
+| -S                   | (**list-rules**) Lista a política de todas as Chains ou uma em específico. Se usado sozinho, sem o -L, lista as regras da mesma forma que criamos elas. |
 | -A                   | (**Append**) Adiciona a regra no final da lista de regras    |
 | -I                   | (**Insert**) Adiciona a regra no inicio da lista de regras   |
 | -d (IP)              | (**Destination**) É o destino                                |
