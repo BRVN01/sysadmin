@@ -769,8 +769,15 @@ Configurando o Rsyslog para capturar os logs do iptables:
 ```bash
 ╼ \# vim /etc/rsyslog.d/10-iptables.conf
 
-# Colocar o texto abaixo:
-kern.warning      /var/log/iptables.log
+############### Colocar o texto abaixo ######################
+# Log kernel generated UFW log messages to file
+:msg,contains,"-DROP] " /var/log/iptables.log
+
+# Uncomment the following to stop logging anything that matches the last rule.
+# Doing this will stop logging kernel generated UFW log messages to the file
+# normally containing kern.* messages (eg, /var/log/kern.log)
+& stop
+############### FIM fo texto acima ######################    
 
 # O iptables usa a facilidade de nivel kern.warn. Podemos encaminhar os logs do iptables
 # para um arquivo específico.
@@ -784,7 +791,7 @@ Para aplicar os log na regra, precisamos criar a regra duas vezes, uma com a aç
 Forma errada de criar um sistema de log:
 
 ```sh
-╼ \# iptables -t filter -A OUTPUT -p tcp -s 10.0.2.15 --sport 22 -d 10.0.2.2 -j LOG --log-prefix '[SSH TCP OUTPUT]'
+╼ \# iptables -t filter -A OUTPUT -p tcp -s 10.0.2.15 --sport 22 -d 10.0.2.2 -j LOG --log-prefix '[Output-DROP] '
 
 ╼ \# iptables -t filter -I OUTPUT -p tcp -s 10.0.2.15 --sport 22 -d 10.0.2.2 -j ACCEPT
 

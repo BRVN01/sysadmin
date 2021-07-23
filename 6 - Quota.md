@@ -266,6 +266,8 @@ linux     +-   6144M   5120M   6144M  6days       2   100   120
 # Veja o mais indicando que o usuário atingiu ultrapassou o limite soft.
 ```
 
+> Se você só aplicar a quota Hard limit, deixando soft limit zerado, o usuário vai poder usar todo o espaço até atingir o limite Hard, mas quando ele atingir esse limit, o repquota não detectar que ele ultrapassou ou atingiu o limite, para isso você precisa especificar o Soft limit.
+
 
 
 ### Verificação periódica
