@@ -13,7 +13,7 @@ Exite duas formas de instalar o mediawiki, uma delas é através do repositório
 Caso você deseje usar mais de uma Wiki usando a mesma instancia (uma única instalação do Media Wiki) no mesmo servidor, hoje em dia existem 3 formas, sendo uma delas uma gamb para deixar seu funcionamento como antigamente.
 
 - **Drupal Style**
-  Funciona somente com Subpages, como: `yourdomain.com/wiki1`, `yourdomain.com/wiki2` e etc.
+  Funciona somente com Subpages, como: `yourdomain.com/wiki1`, `yourdomain.com/wiki2` e etc. [Link](https://www.mediawiki.org/wiki/Manual:Wiki_family/Drupal-style_LocalSettings.php) para pegar o exemplo de configuração do método Drupal.
 
 - **Giant Switch Statement**
   Você pode escolher entre usar com `vhost` (Virtual Hosts do Apache) ou usar com `Subpage`, aparentemente usar os dois métodos ao mesmo tempo não funciona.
@@ -34,10 +34,6 @@ A própria Media Wiki informa que o método de Link Simbólico não funciona mai
 
 
 
-Como o método Giant Switch Statement é um dos melhores e mais fáceis, só irei demonstrar ele.
-
-
-
 #### Usando o método Giant Switch Statement
 
 Crie um arquivo `LocalSettings.php` apenas e adicione o conteúdo abaixo, alterando os domínios de cada Wiki.
@@ -45,6 +41,7 @@ Crie um arquivo `LocalSettings.php` apenas e adicione o conteúdo abaixo, altera
 ```bash
 #### Giant Switch Statement com VHOSTS ####
 
+# Crie o arquivo padrão:
 vim /etc/mediawiki/LocalSettings.php 
 
 ### CONTEÚDO ###
@@ -69,8 +66,10 @@ vim /etc/mediawiki/LocalSettings.php
 
 # ---------------------------------------------------------------------------------------- #
 
+
 #### Giant Switch Statement com SUB-PAGES ####
 
+# Crie o arquivo padrão:
 vim /etc/mediawiki/LocalSettings.php 
 
 ### CONTEÚDO ###
@@ -78,9 +77,9 @@ vim /etc/mediawiki/LocalSettings.php
 // Include common settings to all wikis before this line (eg. database configuration)
 
 $callingurl = strtolower( $_SERVER['REQUEST_URI'] ); // get the calling url
-if ( strpos( $callingurl, '/maddogswiki' )  === 0 ) {
+if ( strpos( $callingurl, '/maddogs' )  === 0 ) {
         require_once '/etc/mediawiki/LocalSettings_maddogs.php';
-} elseif ( strpos( $callingurl, '/taskforce171wiki' ) === 0 ) {
+} elseif ( strpos( $callingurl, '/taskforce171' ) === 0 ) {
         require_once '/etc/mediawiki/LocalSettings_taskforce171.php';
 } else {
         header( 'HTTP/1.1 404 Not Found' );
@@ -90,29 +89,28 @@ if ( strpos( $callingurl, '/maddogswiki' )  === 0 ) {
 ### FIM CONTEÚDO ###
 ```
 
+Você ainda deve configurar `$wgUploadDirectory = "/var/lib/wikis/<NOME>/images";` em cada `LocalSettings.php` de suas Wikis para não ter problema com o Uploads de conteúdos.
+
 
 
 #### Usando o método Drupal Style
 
-Crie um arquivo `LocalSettings.php` apenas e adicione o conteúdo abaixo, alterando os domínios de cada Wiki.
+Obtenha o código [nesse link](https://www.mediawiki.org/wiki/Manual:Wiki_family/Drupal-style_LocalSettings.php), crie o arquivo em `/etc/mediawiki/LocalSettings.php` contendo esse código.
+
+Na variável `$confdir`, coloque o diretório de onde estão as suas Wikis, por exemplo:
 
 ```bash
-<?php
-// Include common settings to all wikis before this line (eg. database configuration)
+# A localização dos diretórios das minhas Wikis:
+ls /var/lib/wikis
+maddogs  taskforce171
 
-$callingurl = strtolower( $_SERVER['REQUEST_URI'] ); // get the calling url
-if ( strpos( $callingurl, '/wiki1' )  === 0 ) {
-        require_once 'LocalSettings_wiki1.php';
-} elseif ( strpos( $callingurl, '/wiki2' ) === 0 ) {
-        require_once 'LocalSettings_wiki2.php';
-} elseif ( strpos( $callingurl, '/wikiN' ) === 0 ) {
-        require_once 'LocalSettings_wikiN.php';
-} else {
-        header( 'HTTP/1.1 404 Not Found' );
-        echo "This wiki (\"" . htmlspecialchars( $callingurl ) . "\") is not available. Check configuration.";
-        exit( 0 );
-}
+# Então minha variável fica assim:
+$confdir = '/var/lib/wikis';
 ```
+
+Agora você deve criar a  configuração do `apache` para apontar para a subpage.
+
+Você ainda deve configurar `$wgUploadDirectory = "/var/lib/wikis/<NOME>/images";` em cada `LocalSettings.php` de suas Wikis para não ter problema com o Uploads de conteúdos.
 
 
 
@@ -169,6 +167,18 @@ sudo chown www-data. -R {images,config,upload}
 
 
 
+### Instalando usando o repositório
+
+No caso do Ubuntu/Debian use o comando abaixo:
+
+```bash
+sudo apt -y install php php-apcu php-json php-intl php-mbstring php-xml php-mysql mariadb-server apache2 imagemagick
+```
+
+
+
+
+
 ### Criando o Banco de Dados
 
 A partir daqui, o processo é o mesmo tanto para instalações feitas a partir do repositório como instalações usando o código fonte. 
@@ -200,73 +210,88 @@ Essa parte é opcional, e você deve escolher entre instalações usando `vhosts
 
 
 
-Configurando Vhosts
+#### Configurando Vhosts
 
-Vamos configurar o apache.
+Vamos configurar o vhost para nossa Wiki.
 
 ```bash
+# Crie o arquivo abaixo:
 cat /etc/apache2/sites-enabled/taskforce.conf 
+
+###### CONTEÚDO ######
 <VirtualHost *:80>
         ServerAdmin taskforce@wiki.teste.com.br
         ServerName taskforcewiki.teste.com.br
         DocumentRoot /var/lib/wikis/taskforce171
 
 	<Directory /var/lib/wikis/taskforce171/>
-	    	Options +FollowSymLinks
-	        AllowOverride All
-	        <IfVersion >= 2.3>
-	                Require all granted
-	        </IfVersion>
-	        <IfVersion < 2.3>
-	                order allow,deny
-	                allow from all
-	        </IfVersion>
+    	Options +FollowSymLinks
+        AllowOverride All
+        <IfVersion >= 2.3>
+        	Require all granted
+        </IfVersion>
+        <IfVersion < 2.3>
+            order allow,deny
+            allow from all
+        </IfVersion>
 	</Directory>
-	
+
+	# some directories must be protected
 	<Directory /var/lib/wikis/taskforce171/config>
-	        Options -FollowSymLinks
-	        AllowOverride None
-	    <IfModule mod_php5.c>
-	        php_admin_flag engine off
-	    </IfModule>
+    	Options -FollowSymLinks
+        AllowOverride None
+    	<IfModule mod_php7.c>
+        	php_admin_flag engine off
+    	</IfModule>
+    	<IfModule mod_php5.c>
+        	php_admin_flag engine off
+    	</IfModule>
 	</Directory>
-	
 	<Directory /var/lib/wikis/taskforce171/images>
-	        Options -FollowSymLinks
-	        AllowOverride None
-	    <IfModule mod_php5.c>
-	        php_admin_flag engine off
-	    </IfModule>
+        Options -FollowSymLinks
+        AllowOverride None
+    	<IfModule mod_php7.c>
+        	php_admin_flag engine off
+    	</IfModule>
+    	<IfModule mod_php5.c>
+        	php_admin_flag engine off
+    	</IfModule>
 	</Directory>
-	
 	<Directory /var/lib/wikis/taskforce171/upload>
-	        Options -FollowSymLinks
-	        AllowOverride None
-	    <IfModule mod_php5.c>
-	        php_admin_flag engine off
-	    </IfModule>
+        Options -FollowSymLinks
+        AllowOverride None
+    	<IfModule mod_php7.c>
+        	php_admin_flag engine off
+    	</IfModule>
+    	<IfModule mod_php5.c>
+        	php_admin_flag engine off
+    	</IfModule>
 	</Directory>
 
-
-        ErrorLog /var/log/apache2/error-taskforce171.log
+	ErrorLog /var/log/apache2/error-taskforce171.log
     
-        # Possible values include: debug, info, notice, warn, error, crit,
-        # alert, emerg.
-        LogLevel warn
+    # Possible values include: debug, info, notice, warn, error, crit,
+    # alert, emerg.
+    LogLevel warn
     
-        CustomLog /var/log/apache2/access-taskforce171.log combined
-    
-        AddDefaultCharset UTF-8
+    CustomLog /var/log/apache2/access-taskforce171.log combined
+    AddDefaultCharset UTF-8
 
 </VirtualHost>
+###### FIM CONTEÚDO ######
 ```
 
 
 
+#### Configurando Subpages
+
 Configure uma página em branco da página principal do apache ou desative ela.
 
 ```bash
-cat /etc/apache2/sites-enabled/000-default.conf
+# Crie uma página principal em branco ou coloque algo nela (caso nao tenha), porque as wikis só serão acessada via subpage:
+vim /etc/apache2/sites-enabled/000-default.conf
+
+###### CONTEÚDO ######
 <VirtualHost *:80>
 
 	ServerName wiki.teste.com.br
@@ -281,143 +306,184 @@ cat /etc/apache2/sites-enabled/000-default.conf
 	ErrorLog ${APACHE_LOG_DIR}/error.log
 	CustomLog ${APACHE_LOG_DIR}/access.log combined
 
-Include /etc/mediawiki/apache.conf
+	Include /etc/mediawiki/apache.conf
 
 </VirtualHost>
 
 # vim: syntax=apache ts=4 sw=4 sts=4 sr noet
+
+###### FIM CONTEÚDO ######
 ```
 
 
 
+Agora adicione a configuração da página no diretório abaixo:
+
 ```bash
-cat /etc/mediawiki/apache.conf 
-# Uncomment this to add an alias.
-# This does not work properly with virtual hosts..
-Alias /mediawiki /var/lib/mediawiki
+# Acesse o arquivo abaixo:
+vim /etc/mediawiki/apache.conf 
 
-<Directory /var/lib/mediawiki/>
-        Options +FollowSymLinks
-        AllowOverride All
-        <IfVersion >= 2.3>
-                Require all granted
-        </IfVersion>
-        <IfVersion < 2.3>
-                order allow,deny
-                allow from all
-        </IfVersion>
-</Directory>
-
-# some directories must be protected
-<Directory /var/lib/mediawiki/config>
-        Options -FollowSymLinks
-        AllowOverride None
-    <IfModule mod_php5.c>
-        php_admin_flag engine off
-    </IfModule>
-</Directory>
-<Directory /var/lib/mediawiki/images>
-        Options -FollowSymLinks
-        AllowOverride None
-    <IfModule mod_php5.c>
-        php_admin_flag engine off
-    </IfModule>
-</Directory>
-<Directory /var/lib/mediawiki/upload>
-        Options -FollowSymLinks
-        AllowOverride None
-    <IfModule mod_php5.c>
-        php_admin_flag engine off
-    </IfModule>
-</Directory>
-
-
-# Wiki bruno
+###### CONTEÚDO ######
 Alias /taskforce171 /var/lib/wikis/taskforce171
 
 <Directory /var/lib/wikis/taskforce171/>
-        Options +FollowSymLinks
-        AllowOverride All
-        <IfVersion >= 2.3>
-                Require all granted
-        </IfVersion>
-        <IfVersion < 2.3>
-                order allow,deny
-                allow from all
-        </IfVersion>
+   	Options +FollowSymLinks
+    AllowOverride All
+    <IfVersion >= 2.3>
+	   	Require all granted
+    </IfVersion>
+    <IfVersion < 2.3>
+    	order allow,deny
+        allow from all
+    </IfVersion>
 </Directory>
 
-# some directories must be protected
+	# some directories must be protected
 <Directory /var/lib/wikis/taskforce171/config>
-        Options -FollowSymLinks
-        AllowOverride None
-    <IfModule mod_php5.c>
-        php_admin_flag engine off
-    </IfModule>
+   	Options -FollowSymLinks
+    AllowOverride None
+  	<IfModule mod_php7.c>
+       	php_admin_flag engine off
+   	</IfModule>
+   	<IfModule mod_php5.c>
+       	php_admin_flag engine off
+   	</IfModule>
 </Directory>
 <Directory /var/lib/wikis/taskforce171/images>
-        Options -FollowSymLinks
-        AllowOverride None
-    <IfModule mod_php5.c>
-        php_admin_flag engine off
-    </IfModule>
+	Options -FollowSymLinks
+    AllowOverride None
+   	<IfModule mod_php7.c>
+     	php_admin_flag engine off
+   	</IfModule>
+   	<IfModule mod_php5.c>
+       	php_admin_flag engine off
+   	</IfModule>
 </Directory>
 <Directory /var/lib/wikis/taskforce171/upload>
-        Options -FollowSymLinks
-        AllowOverride None
-    <IfModule mod_php5.c>
-        php_admin_flag engine off
-    </IfModule>
+    Options -FollowSymLinks
+    AllowOverride None
+   	<IfModule mod_php7.c>
+       	php_admin_flag engine off
+   	</IfModule>
+   	<IfModule mod_php5.c>
+       	php_admin_flag engine off
+   	</IfModule>
 </Directory>
+###### FIM CONTEÚDO ######
 ```
 
 
 
+##### Configuração de redirecionamento
+
+Não esqueça de modificar o `LocalSettings.php` antes de acessar via Web, caso não tenha alterado, [veja aqui](#Usando-o-método-Giant-Switch-Statement).
 
 
-Acesse a página.
-
-
-
-
-
-Criar varias Wikis:
-
-```bash
-# cat /etc/mediawiki/LocalSettings.php 
-<?php
-// Include common settings to all wikis before this line (eg. database configuration)
-
-        switch ( $_SERVER['SERVER_NAME'] ) {
-                case 'maddogswiki.sysnetbr.eng.br':
-                        require_once '/etc/mediawiki/LocalSettings_maddogs.php';
-                        break;
-
-                case 'taskforce171wiki.sysnetbr.eng.br':
-                        require_once '/etc/mediawiki/LocalSettings_taskforce171.php';
-                        break;
-
-                default:
-                        header( 'HTTP/1.1 404 Not Found' );
-                        echo 'This wiki is not available. Check configuration.';
-                        exit( 0 );
-        }
-
-```
 
 
 
 ## Criando outras Wikis
 
-cd /etc/mediawiki
+Caso você precise criar outras Wikis, siga o passo a passo abaixo, isso pode tornar as páginas das Wikis existentes inácessíveis Durante o processo de criação:
 
-mv LocalSettings.php LocalSettings.php-old
+```bash
+# Crie a pasta onde vao ficar as Wikis:
+sudo mkdir -p /var/lib/wikis/<NOME>
 
-Acessa a página pelo navegador
+# Entre na pasta:
+cd /var/lib/wikis/<NOME>
 
-Coloca o localsettings
+# Crie os links
+sudo ln -s /usr/share/mediawiki/* .
 
-mv LocalSettings.php-old LocalSettings.php
+# Apague alguns arquivos/pastas, não podemos ter eles como links:
+rm LocalSettings.php AdminSettings.php images config
+
+# Crie o LocalSettings da sua Wiki (apenas o link simbólico):
+ln -s /etc/mediawiki/LocalSettings_<NOME>.php LocalSettings.php
+
+# Crie as pastas:
+sudo mkdir {images,upload,config}
+
+# De as permissões corretas apenas para os arquivos abaixo:
+sudo chown www-data. -R {images,config,upload}
+
+###################################
+###### Crie a conf no apache ######
+###################################
+
+# Renomeie o arquivo principal para que possa criar uma nova Wiki pela interface Gráfica:
+mv /etc/mediawiki/LocalSettings.php /etc/mediawiki/LocalSettings.php-old
+
+### Acessa a página pelo navegador ###
+### Crie o LocalSettings.php com o arquivo fornecido ###
+
+# Desfaça o rename que tinha feito para que as outras wikis volte a funcionar:
+mv /etc/mediawiki/LocalSettings.php-old /etc/mediawiki/LocalSettings.php
+```
+
+
+
+Criando uma Wiki sem usar os recursos Web, isso impede que você tenha que renomear o arquivo principal, tornando indisponível o acesso de outras Wikis.
+
+```bash
+# Crie a pasta onde vao ficar as Wikis:
+sudo mkdir -p /var/lib/wikis/producao
+
+# Entre na pasta:
+cd /var/lib/wikis/producao
+
+# Crie os links
+sudo ln -s /usr/share/mediawiki/* .
+
+# Apague alguns arquivos/pastas, não podemos ter eles como links:
+rm LocalSettings.php AdminSettings.php images config
+
+# Crie o LocalSettings da sua Wiki (apenas o link simbólico):
+ln -s /etc/mediawiki/LocalSettings_producao.php LocalSettings.php
+
+# Crie as pastas:
+sudo mkdir {images,upload,config}
+
+# De as permissões corretas apenas para os arquivos abaixo:
+sudo chown www-data. -R {images,config,upload}
+
+# Entre no Mysql (mariadb):
+mysql 
+
+# Crie o banco:
+CREATE DATABASE producaowiki;
+
+# Crie o usuário:
+CREATE USER 'producaowikiuser'@'localhost' IDENTIFIED BY 'for1inWiK1D0';
+
+# De permissão para o usuário no banco que criamos:
+GRANT ALL PRIVILEGES ON producaowiki.* TO 'producaowikiuser'@'localhost' WITH GRANT OPTION;
+
+# Recarregue as permissões:
+FLUSH PRIVILEGES;
+
+# Importe o modelo do banco de dados:
+mysql -u root producaowiki < /usr/share/mediawiki/maintenance/tables.sql
+
+###################################
+###### Crie a conf no apache ######
+###################################
+
+# Configure a Wiki:
+cd /usr/share/mediawiki/maintenance
+mv /etc/mediawiki/LocalSettings.php /etc/mediawiki/LocalSettings.php-old && \
+\
+php install.php --confpath='/var/lib/wikis' --dbname=producaowiki --dbserver="localhost" --dbuser=producaowikiuser --dbpass='for1inWiK1D0' --server="http://wiki.test.br.com.br" --scriptpath=/producao --lang=en --pass='4d7tx:h.;Ojv#yngEm2&p%Urk' "producao" "admin" && \
+\
+mv /etc/mediawiki/LocalSettings.php-old /etc/mediawiki/LocalSettings.php
+
+# Pegue o arquivo LocalSeetings criado:
+mv /var/lib/wikis/LocalSettings.php /etc/mediawiki/LocalSettings_producao.php
+
+# Agora restarte o Apache:
+systemctl restart apache2.service
+```
 
 
 
@@ -436,9 +502,9 @@ Antes de começar a migração, você vai precisar do dump de seu banco de dados
 ```bash
 # Fazendo dump do banco de dados (backup):
 mysqldump --user=wikidb_user --password=wikidb_userpassword wikidb > file.sql
+
+# Faça backup do LocalSettings.php e das pastas: image, upload e config.
 ```
-
-
 
 
 
@@ -460,22 +526,14 @@ Agora vamos criar o banco de dados que a nossa nova Wiki vai usar.
 mysql 
 
 # Crie o banco:
-CREATE DATABASE sistemaswiki;
+CREATE DATABASE maddogs;
 
 # Crie o usuário:
-CREATE USER 'sistemaswikiuser'@'localhost' IDENTIFIED BY 'CPCGH/D0HLpVUys8GTkfHBqg';
+CREATE USER 'maddogswikiuser'@'localhost' IDENTIFIED BY 'uZD?%WK+wBqr,G3vQbMnEP&9)';
 
 # De permissão para o usuário no banco que criamos:
-GRANT ALL PRIVILEGES ON sistemaswiki.* TO 'sistemaswikiuser'@'localhost' WITH GRANT OPTION;
+GRANT ALL PRIVILEGES ON maddogswiki.* TO 'maddogswikiuser'@'localhost' WITH GRANT OPTION;
 
-
-cd /var/lib/wikis/sistemas/maintenance
-mysql -u root sistemaswiki < tables-generated.sql
-mysql -u root sistemaswiki < tables.sql 
-mysql -u root sistemaswiki < /home/vagrant/bkp_db.sql 
-./update.php --quick --conf /etc/mediawiki/LocalSettings_sistemas.php
-
-oVPxlvf8t4pnZM-Xi6OwH*5rT
 # Recarregue as permissões:
 FLUSH PRIVILEGES;
 ```
@@ -527,7 +585,7 @@ systemctl restart mysql
 Vamos importar o banco de dados que fizemos backup anteriormente.
 
 ```bash
-sudo mysql -u root sistemaswiki < bkp_db.sql
+sudo mysql -u root maddogswiki < bkp_db.sql
 ```
 
 
@@ -538,7 +596,7 @@ Para isso, siga os processos descritos nos links abaixo, dependendo do tipo de i
 
 [Instalação usando o código fonte](#Instalando-pelo-código-fonte)
 
-
+[Instalando usando o repositório](#Instalando-usando-o-repositório)
 
 
 
@@ -546,7 +604,7 @@ Para isso, siga os processos descritos nos links abaixo, dependendo do tipo de i
 
 Você deve usar o mesmo arquivo que utiliza no servidor antigo e deve deixar no mesmo local em que está o servidor antigo.
 
-Crie também o LocalSettings do método `Giant Swtch Statement`, no meu caso é para sub-pages.
+Crie também o LocalSettings padrão, seja usando método `Giant Swtch Statement` ou `Drupal Style`.
 
 
 
@@ -564,14 +622,12 @@ sudo vim /etc/mediawiki/apache.conf
 ### CONTEÚDO ###
 
 ###
-#### WIKI sistemas
+#### WIKI producao
 ###
 
-Alias /sistemas /var/lib/wikis/sistemas
+Alias /producao /var/lib/wikis/producao
 
-Alias /sistemas /var/lib/wikis/sistemas
-
-<Directory /var/lib/sistemas/>
+<Directory /var/lib/wikis/producao/>
         Options +FollowSymLinks
         AllowOverride All
         <IfVersion >= 2.3>
@@ -584,7 +640,7 @@ Alias /sistemas /var/lib/wikis/sistemas
 </Directory>
 
 # some directories must be protected
-<Directory /var/lib/sistemas/config>
+<Directory /var/lib/wikis/producao/config>
         Options -FollowSymLinks
         AllowOverride None
     <IfModule mod_php7.c>
@@ -594,7 +650,7 @@ Alias /sistemas /var/lib/wikis/sistemas
         php_admin_flag engine off
     </IfModule>
 </Directory>
-<Directory /var/lib/sistemas/images>
+<Directory /var/lib/wikis/producao/images>
         Options -FollowSymLinks
         AllowOverride None
     <IfModule mod_php7.c>
@@ -604,7 +660,7 @@ Alias /sistemas /var/lib/wikis/sistemas
         php_admin_flag engine off
     </IfModule>
 </Directory>
-<Directory /var/lib/sistemas/upload>
+<Directory /var/lib/wikis/producao/upload>
         Options -FollowSymLinks
         AllowOverride None
     <IfModule mod_php7.c>
@@ -619,7 +675,7 @@ Alias /sistemas /var/lib/wikis/sistemas
 
 
 
-Agora na página default do apache `000-default.conf` inclua o caminho para o nosso arquivo de Wikis:
+Agora na página default do apache `000-default.conf` inclua o caminho para o nosso arquivo de Wikis (`Include /etc/mediawiki/apache.conf`):
 
 ```bash
 # Editando a página padrão do Apache:
@@ -649,16 +705,30 @@ sudo apachectl -k graceful
 
 
 
+
+
 ### Finalizando a migração
 
 Volte o backup das pastas: image, upload e config do backup de arquivos:
 
 ```bash
 # Entre na pasta da Wiki:
-cd /var/lib/wikis/sistemas
+cd /var/lib/wikis/producao
+
+# Crie os links
+sudo ln -s /usr/share/mediawiki/* .
+
+# Apague alguns arquivos/pastas, não podemos ter eles como links:
+rm LocalSettings.php AdminSettings.php images config
+
+# Crie o LocalSettings da sua Wiki (apenas o link simbólico):
+ln -s /etc/mediawiki/LocalSettings_taskforce171.php LocalSettings.php
 
 # Copie os arquivos:
-cp -r /home/vagrant/var/lib/wikis/sistemas/{images,upload,config} .
+cp -r /home/vagrant/var/lib/wikis/producao/{images,upload,config} .
+
+# De as permissões corretas apenas para os arquivos abaixo:
+sudo chown www-data. -R {images,config,upload}
 ```
 
 
@@ -670,77 +740,64 @@ Atualize o banco da sua Wiki:
 cd /usr/share/mediawiki/maintenance
 
 # Faça o Update:
-php update.php --conf /etc/mediawiki/LocalSettings_sistemaswiki.php
+php update.php --conf /etc/mediawiki/LocalSettings_producao.php
 ```
 
 
 
-
-
-## Wiki no NIC
+Acerte o diretório de Upload:
 
 ```bash
-# Entre no Mysql (mariadb):
-mysql 
+# Etique o LocalSettings da Wiki:
+vim /etc/mediawiki/LocalSettings_producao.php
 
-# Crie o banco:
-CREATE DATABASE juridicowiki;
+# Adicione a linha abaixo (não esqueça de acertar o caminho correto):
+$wgUploadDirectory = "/var/lib/wikis/<NOME>/images";
+```
 
-# Crie o usuário:
-CREATE USER 'juridicowikiuser'@'localhost' IDENTIFIED BY 'rpeT1WZumgFZrwjI7VqDxKSK';
+Por fim reinicie o Apache. Com isso sua Wiki estará migrada.
 
-# De permissão para o usuário no banco que criamos:
-GRANT ALL PRIVILEGES ON juridicowiki.* TO 'juridicowikiuser'@'localhost' WITH GRANT OPTION;
 
-# Recarregue as permissões:
-FLUSH PRIVILEGES;
 
-cd /usr/share/mediawiki
-mv LocalSettings.php LocalSettings.php.bkp
 
-mkdir /var/lib/wikis/<NOME>
-cd /var/lib/wikis/<NOME>
 
-ln -s /usr/share/mediawiki/* .
-rm LocalSettings.php AdminSettings.php images config
-sudo cp -a /var/lib/mediawiki/config .
-sudo mkdir images
-sudo chown www-data. -R {images,config}
+## Criando um Usuários e Modificando Senha
 
-ln -s /etc/mediawiki/LocalSettings_juridico.php LocalSettings.php
+Siga o passo a passo abaixo para criar/trocar a senha de usuários:
 
-# Para uma pagina com sub, ex.: /juridico
-vim /etc/mediawiki/apache.conf
-
-apachectl -k graceful
-
-# Acessar a nova página para configuração
-
-# Depois de configurado:
-cd /usr/share/mediawiki
-mv LocalSettings.php.bkp LocalSettings.php
-
-## incluindo usuários, ex. sysadminwiki
+```bash
+## Criando um usuário:
 
 cd /usr/share/mediawiki/maintenance
-cfg=/etc/mediawiki/LocalSettings_cetic.php
- user_login='lucasferreira'
- pass_login='MudarPorFavor123'
+cfg=/etc/mediawiki/LocalSettings_<NOME>.php
+user_login='USERNAME'
+pass_login='SENHA'
 
 php createAndPromote.php --conf=${cfg} ${user_login} ${pass_login}
 
+
+
 ## trocando a senha
+
+cd /usr/share/mediawiki/maintenance
+cfg=/etc/mediawiki/LocalSettings_<NOME>.php
+user_login='USERNAME'
+pass_login='SENHA'
 
 php changePassword.php --conf=${cfg} --user=${user_login} --password=${pass_login}
 ```
 
 
 
-LocalSettings de sistemas
+
+
+## LocalSettings.php padrão
+
+Segue uma versão do localsettings padrão para a instalação do MediaWiki 1.31.7:
 
 ```bash
 <?php
-# This file was automatically generated by the MediaWiki 1.19.14+dfsg-1
+# This file was automatically generated by the MediaWiki 1.31.7
 # installer. If you make manual changes, please keep track in case you
 # need to recreate them later.
 #
@@ -749,182 +806,128 @@ LocalSettings de sistemas
 # file, not there.
 #
 # Further documentation for configuration settings may be found at:
-# http://www.mediawiki.org/wiki/Manual:Configuration_settings
+# https://www.mediawiki.org/wiki/Manual:Configuration_settings
 
 # Protect against web entry
 if ( !defined( 'MEDIAWIKI' ) ) {
 	exit;
 }
 
+## Include platform/distribution defaults
+require_once "$IP/includes/PlatformSettings.php";
+
 ## Uncomment this to disable output compression
 # $wgDisableOutputCompression = true;
 
-$wgSitename      = "Sistemas";
-$wgMetaNamespace = "AMinhaWiki";
+$wgSitename = "taskforce171";
+$wgMetaNamespace = "taskforce171";
 
 ## The URL base path to the directory containing the wiki;
 ## defaults for all runtime URL paths are based off of this.
-## For more information on customizing the URLs please see:
-## http://www.mediawiki.org/wiki/Manual:Short_URL
-$wgScriptPath       = "/sistemas";
-$wgScriptExtension  = ".php";
+## For more information on customizing the URLs
+## (like /w/index.php/Page_title to /wiki/Page_title) please see:
+## https://www.mediawiki.org/wiki/Manual:Short_URL
+$wgScriptPath = "/taskforce171";
 
 ## The protocol and server name to use in fully-qualified URLs
-$wgServer           = "https://wiki.registro.br";
+$wgServer = "http://wiki.test.br.com.br";
 
-## The relative URL path to the skins directory
-$wgStylePath        = "$wgScriptPath/skins";
+## The URL path to static resources (images, scripts, etc.)
+$wgResourceBasePath = $wgScriptPath;
 
-## The relative URL path to the logo.  Make sure you change this from the default,
+## The URL path to the logo.  Make sure you change this from the default,
 ## or else you'll overwrite your logo when you upgrade!
-#$wgLogo             = "$wgStylePath/common/images/wiki.png";
+$wgLogo = "$wgResourceBasePath/resources/assets/wiki.png";
 
 ## UPO means: this is also a user preference option
 
-$wgEnableEmail      = true;
-$wgEnableUserEmail  = true; # UPO
+$wgEnableEmail = true;
+$wgEnableUserEmail = true; # UPO
 
-$wgEmergencyContact = "apache@wiki.registro.br";
-$wgPasswordSender   = "apache@wiki.registro.br";
+$wgEmergencyContact = "apache@wiki.test.br.com.br";
+$wgPasswordSender = "apache@wiki.test.br.com.br";
 
-$wgEnotifUserTalk      = false; # UPO
-$wgEnotifWatchlist     = false; # UPO
+$wgEnotifUserTalk = false; # UPO
+$wgEnotifWatchlist = false; # UPO
 $wgEmailAuthentication = true;
 
 ## Database settings
-$wgDBtype           = "mysql";
-$wgDBserver         = "localhost";
-$wgDBname           = "sistemaswiki";
-$wgDBuser           = "sistemaswikiuser";
-$wgDBpassword       = "CPCGH/D0HLpVUys8GTkfHBqg";
+$wgDBtype = "mysql";
+$wgDBserver = "localhost";
+$wgDBname = "NAME-DB";
+$wgDBuser = "USER-DB";
+$wgDBpassword = "SENHA";
 
 # MySQL specific settings
-$wgDBprefix         = "";
+$wgDBprefix = "";
 
 # MySQL table options to use during installation or update
-$wgDBTableOptions   = "ENGINE=InnoDB, DEFAULT CHARSET=binary";
-
-# Experimental charset support for MySQL 5.0.
-$wgDBmysql5 = false;
+$wgDBTableOptions = "ENGINE=InnoDB, DEFAULT CHARSET=binary";
 
 ## Shared memory settings
-$wgMainCacheType    = CACHE_NONE;
-$wgMemCachedServers = array();
+$wgMainCacheType = CACHE_NONE;
+$wgMemCachedServers = [];
 
 ## To enable image uploads, make sure the 'images' directory
 ## is writable, then set this to true:
-#$wgEnableUploads  = false;
+$wgEnableUploads = false;
 $wgUseImageMagick = true;
 $wgImageMagickConvertCommand = "/usr/bin/convert";
 
-# InstantCommons allows wiki to use images from http://commons.wikimedia.org
-$wgUseInstantCommons  = false;
+# InstantCommons allows wiki to use images from https://commons.wikimedia.org
+$wgUseInstantCommons = false;
+
+# Periodically send a pingback to https://www.mediawiki.org/ with basic data
+# about this MediaWiki instance. The Wikimedia Foundation shares this data
+# with MediaWiki developers to help guide future development efforts.
+$wgPingback = true;
 
 ## If you use ImageMagick (or any other shell command) on a
 ## Linux server, this will need to be set to the name of an
 ## available UTF-8 locale
-$wgShellLocale = "en_US.utf8";
-
-## If you want to use image uploads under safe mode,
-## create the directories images/archive, images/thumb and
-## images/temp, and make them all writable. Then uncomment
-## this, if it's not already uncommented:
-#$wgHashedUploadDirectory = false;
+$wgShellLocale = "C.UTF-8";
 
 ## Set $wgCacheDirectory to a writable directory on the web server
 ## to make your wiki go slightly faster. The directory should not
 ## be publically accessible from the web.
 #$wgCacheDirectory = "$IP/cache";
 
-# Site language code, should be one of the list in ./languages/Names.php
+# Site language code, should be one of the list in ./languages/data/Names.php
 $wgLanguageCode = "pt-br";
 
-$wgSecretKey = "d34af0a9fe87c94324fb9d97ef9bb5dd2e268a6ba473676ab39294d50bef134d";
+$wgSecretKey = "ca14996bd2d4d6ffc6282050f8893cf920e641ace81e0bad35fff255a095ed06";
+
+# Changing this will log out all existing sessions.
+$wgAuthenticationTokenVersion = "1";
 
 # Site upgrade key. Must be set to a string (default provided) to turn on the
 # web installer while LocalSettings.php is in place
-$wgUpgradeKey = "3c716abcb430a233";
-
-## Default skin: you can change the default skin. Use the internal symbolic
-## names, ie 'standard', 'nostalgia', 'cologneblue', 'monobook', 'vector':
-$wgDefaultSkin = "vector";
+$wgUpgradeKey = "a03458a91eeeedf6";
 
 ## For attaching licensing metadata to pages, and displaying an
 ## appropriate copyright notice / icon. GNU Free Documentation
 ## License and Creative Commons licenses are supported so far.
 $wgRightsPage = ""; # Set to the title of a wiki page that describes your license/copyright
-$wgRightsUrl  = "";
+$wgRightsUrl = "";
 $wgRightsText = "";
 $wgRightsIcon = "";
 
 # Path to the GNU diff3 utility. Used for conflict resolution.
 $wgDiff3 = "/usr/bin/diff3";
 
-# debian-specific include:
-if (is_file("/etc/mediawiki-extensions/extensions.php")) {
-	include("/etc/mediawiki-extensions/extensions.php");
-}
+## Default skin: you can change the default skin. Use the internal symbolic
+## names, ie 'vector', 'monobook':
+$wgDefaultSkin = "vector";
 
-# Query string length limit for ResourceLoader. You should only set this if
-# your web server has a query string length limit (then set it to that limit),
-# or if you have suhosin.get.max_value_length set in php.ini (then set it to
-# that value)
-$wgResourceLoaderMaxQueryLength = -1;
-$wgLogo = '../images/registrobr-s.png';
-$wgGroupPermissions['*']['edit'] = false;             # impede edicao sem estar logado
-$wgGroupPermissions['*']['createaccount'] = false;    # impede criacao de novos usuarios
+# Enabled skins.
+# The following skins were automatically enabled:
+wfLoadSkin( 'MonoBook' );
+wfLoadSkin( 'Timeless' );
+wfLoadSkin( 'Vector' );
 
-# Disable reading by anonymous users
-$wgGroupPermissions['*']['read'] = false;
-
-# Tornando o grupo user (default) somente leitura:
-$wgGroupPermissions['user']['edit'] = false;
-$wgGroupPermissions['user']['createtalk'] = false;
-$wgGroupPermissions['user']['createpage'] = false;
-$wgGroupPermissions['user']['minoredit'] = false;
-$wgGroupPermissions['user']['movefile'] = false;
-$wgGroupPermissions['user']['move'] = false;
-$wgGroupPermissions['user']['move-subpages'] = false;
-$wgGroupPermissions['user']['move-rootuserpages'] = false;
-$wgGroupPermissions['user']['reupload-shared'] = false;
-$wgGroupPermissions['user']['reupload'] = false;
-$wgGroupPermissions['user']['purge'] = false;
-$wgGroupPermissions['user']['sendemail'] = false;
-$wgGroupPermissions['user']['upload'] = false;
-$wgGroupPermissions['user']['writeapi'] = false;
-
-# Grupo somente para quem pode editar:
-$wgGroupPermissions['edit-only']['edit'] = true;
-$wgGroupPermissions['edit-only']['createtalk'] = true;
-$wgGroupPermissions['edit-only']['createpage'] = true;
-$wgGroupPermissions['edit-only']['minoredit'] = true;
-$wgGroupPermissions['edit-only']['movefile'] = true;
-$wgGroupPermissions['edit-only']['move'] = true;
-$wgGroupPermissions['edit-only']['move-subpages'] = true;
-$wgGroupPermissions['edit-only']['move-rootuserpages'] = true;
-$wgGroupPermissions['edit-only']['reupload-shared'] = true;
-$wgGroupPermissions['edit-only']['reupload'] = true;
-$wgGroupPermissions['edit-only']['purge'] = true;
-$wgGroupPermissions['edit-only']['read'] = true;
-$wgGroupPermissions['edit-only']['sendemail'] = true;
-$wgGroupPermissions['edit-only']['upload'] = true;
-$wgGroupPermissions['edit-only']['writeapi'] = true;
-
-$wgEnableUploads = true;
-$wgCookieExpiration = 2592000;
-$wgFileExtensions[] = 'pdf';
-$wgFileExtensions[] = 'ods';
-$wgFileExtensions[] = 'odt';
-$wgFileExtensions[] = 'odg';
-$wgFileExtensions[] = 'ppt';
-$wgFileExtensions[] = 'doc';
-$wgFileExtensions[] = 'xls';
-
-$wgPFEnableStringFunctions = true;
 
 # End of automatically generated settings.
 # Add more configuration options below.
-
 ```
 
 
@@ -940,4 +943,6 @@ https://www.mediawiki.org/wiki/Manual:Installation_guide
 https://www.mediawiki.org/wiki/Manual:Installation_requirements
 https://sharkysoft.com/wiki/how_to_configure_multiple_MediaWiki_instances_on_a_single_host
 https://www.mediawiki.org/wiki/Manual:Upgrading/pt-br
+https://www.mediawiki.org/wiki/Manual:Running_MediaWiki_on_Debian_or_Ubuntu
+https://www.mediawiki.org/wiki/Manual:$wgLogo
 
