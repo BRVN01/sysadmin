@@ -424,7 +424,7 @@ mv /etc/mediawiki/LocalSettings.php-old /etc/mediawiki/LocalSettings.php
 
 
 
-Criando uma Wiki sem usar os recursos Web, isso impede que você tenha que renomear o arquivo principal, tornando indisponível o acesso de outras Wikis.
+Criando uma Wiki sem usar os recursos Web, isso diminui o tempo em que você vai deixar as wikis inacessíveis.
 
 ```bash
 # Crie a pasta onde vao ficar as Wikis:
