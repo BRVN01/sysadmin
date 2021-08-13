@@ -463,9 +463,6 @@ GRANT ALL PRIVILEGES ON producaowiki.* TO 'producaowikiuser'@'localhost' WITH GR
 # Recarregue as permissões:
 FLUSH PRIVILEGES;
 
-# Importe o modelo do banco de dados:
-mysql -u root producaowiki < /usr/share/mediawiki/maintenance/tables.sql
-
 ###################################
 ###### Crie a conf no apache ######
 ###################################
